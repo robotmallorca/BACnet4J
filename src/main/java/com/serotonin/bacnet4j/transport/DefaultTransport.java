@@ -414,6 +414,7 @@ public class DefaultTransport implements Transport, Runnable {
             		pause = expire();
             	}catch(Exception e){
             		LOG.error("Error during expire messages: ", e);
+			pause = false;
             	}
             }
 
@@ -807,18 +808,18 @@ public class DefaultTransport implements Transport, Runnable {
                     // Timeout
                     if (ctx.getSegmentWindow() == null) {
                         // Not a segmented message, at least as far as we know.
-                        ctx.getConsumer().ex(new BACnetTimeoutException());
                         umIter.remove();
+			ctx.getConsumer().ex(new BACnetTimeoutException());
                     }
                     else {
                         // A segmented message.
                         if (ctx.getSegmentWindow().isEmpty() && ctx.getConsumer() != null) {
                             // No segments received. Return a timeout.
+			    umIter.remove();
                             ctx.getConsumer()
                                     .ex(new BACnetTimeoutException(
                                             "Timeout while waiting for segment part: invokeId=" + key.getInvokeId()
                                                     + ", sequenceId=" + ctx.getSegmentWindow().getFirstSequenceId()));
-                            umIter.remove();
                         }
                         else if (ctx.getSegmentWindow().isEmpty())
                             LOG.warn("No segments received for message " + ctx.getOriginalApdu());
@@ -832,8 +833,8 @@ public class DefaultTransport implements Transport, Runnable {
                                         false);
                             }
                             catch (BACnetException ex) {
+				umIter.remove();
                                 ctx.getConsumer().ex(ex);
-                                umIter.remove();
                             }
                         }
                     }
