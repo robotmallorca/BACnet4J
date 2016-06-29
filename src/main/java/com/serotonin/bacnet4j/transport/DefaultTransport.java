@@ -53,6 +53,7 @@ import com.serotonin.bacnet4j.apdu.UnconfirmedRequest;
 import com.serotonin.bacnet4j.enums.MaxSegments;
 import com.serotonin.bacnet4j.exception.BACnetErrorException;
 import com.serotonin.bacnet4j.exception.BACnetException;
+import com.serotonin.bacnet4j.exception.AbortAPDUException;
 import com.serotonin.bacnet4j.exception.BACnetRejectException;
 import com.serotonin.bacnet4j.exception.BACnetServiceException;
 import com.serotonin.bacnet4j.exception.BACnetTimeoutException;
@@ -315,17 +316,22 @@ public class DefaultTransport implements Transport, Runnable {
 
             APDU apdu;
 
+	    Boolean segError;
+	    segError = false;
             // Check if we need to segment the message.
             if (serviceData.size() > maxAPDULengthAccepted - ConfirmedRequest.getHeaderSize(false)) {
                 int maxServiceData = maxAPDULengthAccepted - ConfirmedRequest.getHeaderSize(true);
                 // Check if the device can accept what we want to send.
                 if (segmentationSupported.intValue() == Segmentation.noSegmentation.intValue()
                         || segmentationSupported.intValue() == Segmentation.segmentedTransmit.intValue())
-                    throw new ServiceTooBigException("Request too big to send to device without segmentation");
+		    segError = true;
+		// consumer.ex(new ServiceTooBigException("Request too big to send to device without segmentation"));
                 int segmentsRequired = serviceData.size() / maxServiceData + 1;
                 if (segmentsRequired > 128)
-                    throw new ServiceTooBigException("Request too big to send to device; too many segments required");
+		    segError = true;
+		// throw new ServiceTooBigException("Request too big to send to device; too many segments required");
 
+		    
                 // Prepare the segmenting session.
                 ctx.setSegmentTemplate(new ConfirmedRequest(true, true, true, MAX_SEGMENTS, network.getMaxApduLength(),
                         key.getInvokeId(), 0, segWindow, service.getChoiceId(), null, service.getNetworkPriority()));
@@ -334,15 +340,17 @@ public class DefaultTransport implements Transport, Runnable {
 
                 // Send an initial message to negotiate communication terms.
                 apdu = ctx.getSegmentTemplate().clone(true, 0, segWindow, ctx.getNextSegment());
+
             }
             else
                 // We can send the whole APDU in one shot.
                 apdu = new ConfirmedRequest(false, false, true, MAX_SEGMENTS, network.getMaxApduLength(),
-                        key.getInvokeId(), (byte) 0, 0, service.getChoiceId(), serviceData,
-                        service.getNetworkPriority());
+					    key.getInvokeId(), (byte) 0, 0, service.getChoiceId(), serviceData,
+					    service.getNetworkPriority());
 
-            ctx.setOriginalApdu(apdu);
-            sendForResponse(key, ctx);
+	    ctx.setOriginalApdu(apdu);
+	    sendForResponse(key, ctx);
+	    // else {consumer.fail(new Abort(false, (byte) 0, 4));}
         }
 
         @Override
