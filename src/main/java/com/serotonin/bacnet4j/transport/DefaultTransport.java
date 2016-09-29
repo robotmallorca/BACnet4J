@@ -821,30 +821,12 @@ public class DefaultTransport implements Transport, Runnable {
                     }
                     else {
                         // A segmented message.
-                        if (ctx.getSegmentWindow().isEmpty() && ctx.getConsumer() != null) {
-                            // No segments received. Return a timeout.
 			    umIter.remove();
                             ctx.getConsumer()
                                     .ex(new BACnetTimeoutException(
                                             "Timeout while waiting for segment part: invokeId=" + key.getInvokeId()
                                                     + ", sequenceId=" + ctx.getSegmentWindow().getFirstSequenceId()));
-                        }
-                        else if (ctx.getSegmentWindow().isEmpty())
-                            LOG.warn("No segments received for message " + ctx.getOriginalApdu());
-                        else {
-                            // Return a NAK with the last sequence id received in order and start over.
-                            try {
-                                network.sendAPDU(key.getAddress(), key.getLinkService(),
-                                        new SegmentACK(true, key.isFromServer(), key.getInvokeId(),
-                                                ctx.getSegmentWindow().getLatestSequenceId(),
-                                                ctx.getSegmentWindow().getWindowSize(), true),
-                                        false);
-                            }
-                            catch (BACnetException ex) {
-				umIter.remove();
-                                ctx.getConsumer().ex(ex);
-                            }
-                        }
+                        
                     }
                 }
 
