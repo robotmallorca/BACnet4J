@@ -28,6 +28,10 @@
  */
 package com.serotonin.bacnet4j.npdu;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Vector;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +48,9 @@ abstract public class Network {
 
     private final int localNetworkNumber;
     private Transport transport;
+    // Routing map indexed by networkNumber
+    private Map<Integer, Network> routes = new HashMap<Integer, Network>();
+    private Vector<Integer> routerPorts = new Vector<>();
 
     public Network() {
         this(0);
@@ -65,6 +72,89 @@ abstract public class Network {
         return transport;
     }
 
+    /**
+     * Adds a new route to remote network assigning automatically a port to the new route.
+     * 
+     * @param remoteNetwork The remote network, remoteNetwork.getLocalNetworkNumber() must return
+     *                      the remote network number.
+     *                      
+     * @return returns the port assigned to the new route. 
+     */
+    public int addRoute(Network remoteNetwork) {
+    	int remoteNetworkNumber = remoteNetwork.getLocalNetworkNumber();
+    	int port = -1;
+    	if(remoteNetworkNumber > 0 && remoteNetworkNumber != Address.ALL_NETWORKS && remoteNetworkNumber != getLocalNetworkNumber() ) {
+    		synchronized (routes) {
+    			routes.put(remoteNetworkNumber, remoteNetwork);
+    			port = routerPorts.indexOf(remoteNetworkNumber);
+    			if(port == -1) {
+    				if(routerPorts.size() > 254)
+    					throw new RuntimeException("No room for more routes");
+    				routerPorts.add(remoteNetworkNumber);
+    				port = routerPorts.size();
+    			} else {
+    				++port;
+    			}
+			}
+    	} else {
+    		throw new RuntimeException("Invalid arguments: invalid remote network number " + remoteNetworkNumber);
+    	}
+    	return port;
+    }
+    
+    /**
+     * Adds a new route to remote network.
+     * 
+     * @param port			Assigned router port.
+     * @param remoteNetwork	The remote network, remoteNetwork.getLocalNetworkNumber() must return
+     *                      the remote network number.
+     */
+    public void addRoute(int port, Network remoteNetwork) {
+    	if(port < 1 || port > 255)
+    		throw new RuntimeException("Invalid arguments: invalid port " + port);
+
+    	int remoteNetworkNumber = remoteNetwork.getLocalNetworkNumber();
+    	if(remoteNetworkNumber > 0 && remoteNetworkNumber != Address.ALL_NETWORKS && remoteNetworkNumber != getLocalNetworkNumber() ) {
+    		synchronized (routes) {
+    			routes.put(remoteNetworkNumber, remoteNetwork);
+    			if(port > routerPorts.size()) {
+    				routerPorts.setSize(port);
+    			}
+    			routerPorts.set(port-1, remoteNetworkNumber);
+			}
+    	} else {
+    		throw new RuntimeException("Invalid arguments: invalid remote network number " + remoteNetworkNumber);
+    	}
+    }
+    
+    /**
+     * 
+     * @param remoteNetworkNumber
+     * @return Returns the Network object used for routing remoteNetworkNumber or null
+     *         if the route don't exists.
+     */
+    public Network getRouteNetwork(int remoteNetworkNumber){
+    	synchronized (routes) {
+    		return routes.get(remoteNetworkNumber);
+		}
+    }
+    
+    /**
+     * 
+     * @param port
+     * @return Returns the Network object assigned to the router port or null 
+     *         if the router port don't exists.
+     */
+    public Network getRouteNetworkFromPort(int port) {
+    	synchronized (routes) {
+    		if(port > 0 && port <= routerPorts.size() && routerPorts.get(port-1) != null) {
+    			return routes.get(routerPorts.get(port-1));
+    		} else {
+    			return null;
+    		}
+		}
+    }
+    
     abstract public long getBytesOut();
 
     abstract public long getBytesIn();
@@ -162,7 +252,33 @@ abstract public class Network {
             NPDU npdu = handleIncomingDataImpl(queue, linkService);
             if (npdu != null) {
                 LOG.debug("Received NPDU from {}: {}", linkService, npdu);
-                getTransport().incoming(npdu);
+                Address to = npdu.getTo();
+                if(to == null) {
+                	getTransport().incoming(npdu);
+                } else {
+                	// The message must be routed to another network
+                	int destNet = to.getNetworkNumber().intValue();
+                	if(destNet == Address.ALL_NETWORKS) {
+                		int hopcount = npdu.getHopCount();
+                		if(hopcount > 0) {
+	                		// Broadcast to all routes
+                			for(Integer networkNumber:routerPorts) {
+	                			NPDU forwardNpdu = new NPDU(npdu.getFrom(), npdu.getTo(), npdu.getLinkService(), (ByteQueue)npdu.getNetworkMessageData().clone());
+	                			forwardNpdu.setHopCount(hopcount-1);
+	                			if(networkNumber != null && networkNumber > 0) {
+	                				getRouteNetwork(networkNumber).route(forwardNpdu);
+	                			}
+	                		}
+                			// Deliver locally
+	                		getTransport().incoming(npdu);
+                		}
+                	} else {
+            			if(isThisNetwork(npdu.getFrom())) {
+            				npdu = new NPDU(new Address(getLocalNetworkNumber(),npdu.getFrom().getMacAddress()), npdu.getTo(), npdu.getLinkService(), npdu.getNetworkMessageData());
+            			}
+                		getRouteNetwork(destNet).route(npdu);
+                	}
+                }
             }
         }
         catch (Exception e) {
@@ -173,19 +289,49 @@ abstract public class Network {
         }
     }
 
-    abstract protected NPDU handleIncomingDataImpl(ByteQueue queue, OctetString linkService) throws Exception;
+	abstract protected NPDU handleIncomingDataImpl(ByteQueue queue, OctetString linkService) throws Exception;
 
-    public NPDU parseNpduData(ByteQueue queue, OctetString linkService) throws MessageValidationException {
+    protected void route(NPDU npdu) {
+    	try {
+    		routeImpl(npdu);
+    	} catch(Exception e) {
+    		transport.getLocalDevice().getExceptionDispatcher().fireReceivedException(e);
+    	} catch (Throwable t) {
+            transport.getLocalDevice().getExceptionDispatcher().fireReceivedThrowable(t);
+        }
+	}
+
+    /**
+     * Remote network proxies must implement this method to deliver remote NPDUs to
+     * the right destination.
+     * 
+     * @param npdu
+     * @throws Exception
+     */
+    protected void routeImpl(NPDU npdu) throws Exception {
+		throw new Exception("Routing not implemented");
+	}
+
+	public NPDU parseNpduData(ByteQueue queue, OctetString linkService) throws MessageValidationException {
         // Network layer protocol control information. See 6.2.2
         NPCI npci = new NPCI(queue);
         if (npci.getVersion() != 1)
             throw new MessageValidationException("Invalid protocol version: " + npci.getVersion());
 
-        // Check the destination network number and ignore foreign networks requests  
+        // Check the destination network number and ignore foreign networks for which we don't have a route  
+        Address to = null;
         if (npci.hasDestinationInfo()) {
             int destNet = npci.getDestinationNetwork();
-            if (destNet > 0 && destNet != 0xffff && getLocalNetworkNumber() > 0 && getLocalNetworkNumber() != destNet)
-                return null;
+            if (destNet > 0 && destNet != Address.ALL_NETWORKS && getLocalNetworkNumber() != destNet && getRouteNetwork(destNet) == null) {
+            	return null;
+            }
+            if(getLocalNetworkNumber() != destNet) {
+            	byte temp[] = npci.getDestinationAddress();
+            	if(temp == null) {
+            		temp = new byte[] {0};
+            	}
+            	to = new Address(destNet, temp);
+            }
         }
 
         Address from;
@@ -197,12 +343,18 @@ abstract public class Network {
         if (isThisNetwork(from))
             linkService = null;
 
-        if (npci.isNetworkMessage())
+        NPDU npdu;
+        if (npci.isNetworkMessage()) {
             // Network message
-            return new NPDU(from, linkService, npci.getMessageType(), queue);
-
-        // APDU message
-        return new NPDU(from, linkService, queue);
+            npdu = new NPDU(from, to, linkService, npci.getMessageType(), queue);
+        } else {
+	        // APDU message
+	        npdu = new NPDU(from, to, linkService, queue);
+	       if(npci.hasDestinationInfo()) {
+	    	   npdu.setHopCount(npci.getHopCount());
+	       }
+        }
+        return npdu;
     }
 
     @Override
