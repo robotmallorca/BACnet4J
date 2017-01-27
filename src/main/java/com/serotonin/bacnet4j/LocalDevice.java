@@ -448,14 +448,28 @@ public class LocalDevice {
     // Remote device management
     //
     public RemoteDevice getRemoteDevice(int instanceId) throws BACnetException {
-        RemoteDevice d = getRemoteDeviceImpl(instanceId);
+    	return getRemoteDevice(instanceId, null);
+    }
+
+    public RemoteDevice getRemoteDevice(int instanceId, int networkNumber) throws BACnetException {
+    	return getRemoteDevice(instanceId, new UnsignedInteger(networkNumber));
+    }
+    
+    public RemoteDevice getRemoteDevice(int instanceId, UnsignedInteger networkNumber) throws BACnetException {
+        RemoteDevice d = getRemoteDeviceImpl(instanceId, networkNumber);
         if (d == null)
             throw new BACnetException("Unknown device: instance id=" + instanceId);
         return d;
     }
-
+    
     public RemoteDevice getRemoteDeviceCreate(int instanceId, Address address) {
-        RemoteDevice d = getRemoteDeviceImpl(instanceId);
+    	UnsignedInteger networkNumber;
+    	if(address == null) {
+    		networkNumber = null;
+    	} else {
+    		networkNumber = address.getNetworkNumber();
+    	}
+        RemoteDevice d = getRemoteDeviceImpl(instanceId, networkNumber);
         if (d == null) {
             if (address == null)
                 throw new NullPointerException("addr cannot be null");
@@ -471,10 +485,12 @@ public class LocalDevice {
         remoteDevices.add(d);
     }
 
-    public RemoteDevice getRemoteDeviceImpl(int instanceId) {
+    public RemoteDevice getRemoteDeviceImpl(int instanceId, UnsignedInteger networkNumber) {
         for (RemoteDevice d : remoteDevices) {
-            if (d.getInstanceNumber() == instanceId)
-                return d;
+        	if((networkNumber == null && d.getNetworkNumber() == null) || networkNumber == d.getNetworkNumber()) {
+        		if (d.getInstanceNumber() == instanceId)
+        			return d;
+        	}
         }
         return null;
     }
@@ -625,7 +641,7 @@ public class LocalDevice {
     // Manual device discovery
     //
     public RemoteDevice findRemoteDevice(Address address, int deviceId) throws BACnetException {
-        RemoteDevice d = getRemoteDeviceImpl(deviceId);
+        RemoteDevice d = getRemoteDeviceImpl(deviceId, address.getNetworkNumber());
 
         if (d == null) {
             ObjectIdentifier deviceOid = new ObjectIdentifier(ObjectType.device, deviceId);

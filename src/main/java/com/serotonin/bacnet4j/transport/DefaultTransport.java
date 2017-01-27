@@ -275,9 +275,9 @@ public class DefaultTransport implements Transport, Runnable {
                         && targetNetworkNumber != network.getLocalNetworkNumber()) {
                     // Going to a specific remote network. Check if we know the router for it.
                     linkService = networkRouters.get(targetNetworkNumber);
-                    if (linkService == null)
-                        handleException(new BACnetTimeoutException(
-                                "Unable to find router to network " + address.getNetworkNumber().intValue()));
+//                    if (linkService == null)
+//                        handleException(new BACnetTimeoutException(
+//                                "Unable to find router to network " + address.getNetworkNumber().intValue()));
                 }
                 sendImpl();
             }

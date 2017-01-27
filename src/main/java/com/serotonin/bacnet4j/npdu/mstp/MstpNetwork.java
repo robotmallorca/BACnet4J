@@ -83,7 +83,13 @@ public class MstpNetwork extends Network {
         return new Address[] { MstpNetworkUtils.toAddress(getLocalNetworkNumber(), node.getThisStation()) };
     }
 
+    
     @Override
+	public Address getLocalAddress() {
+		return getAddress(node.getThisStation());
+	}
+
+	@Override
     public long getBytesOut() {
         return node.getBytesOut();
     }

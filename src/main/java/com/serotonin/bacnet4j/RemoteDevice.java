@@ -230,4 +230,8 @@ public class RemoteDevice implements Serializable {
             return false;
         return true;
     }
+
+	public UnsignedInteger getNetworkNumber() {
+		return address.getNetworkNumber();
+	}
 }

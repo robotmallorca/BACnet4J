@@ -411,10 +411,8 @@ public class ScheduleObject<T extends Primitive> extends BACnetObject {
             else {
                 final ObjectIdentifier devId = dopr.getDeviceIdentifier();
                 final ObjectIdentifier oid = dopr.getObjectIdentifier();
-                RemoteDevice d = getLocalDevice().getRemoteDeviceImpl(devId.getInstanceNumber());
-                if (d == null)
-                    LOG.warn("Schedule failed to write to unknown remote device {}", devId);
-                else {
+                try {
+                	RemoteDevice d = getLocalDevice().getRemoteDevice(devId.getInstanceNumber());
                     WritePropertyRequest req = new WritePropertyRequest(oid, dopr.getPropertyIdentifier(),
                             dopr.getPropertyArrayIndex(), value, priorityForWriting);
                     getLocalDevice().send(d, req, new ResponseConsumer() {
@@ -433,6 +431,9 @@ public class ScheduleObject<T extends Primitive> extends BACnetObject {
                             LOG.error("Schedule failed to write to {} in {}", oid, devId, e);
                         }
                     });
+                } catch(BACnetException e) {
+                	LOG.warn(e.getMessage());
+                	LOG.warn("Schedule failed to write to unknown remote device {}", devId);
                 }
             }
         }

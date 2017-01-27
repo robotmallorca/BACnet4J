@@ -65,6 +65,7 @@ public class TestNetwork extends Network implements Runnable {
     }
 
     public TestNetwork(Address address, int sendDelay) {
+    	super(address.getNetworkNumber().intValue());
         this.address = address;
         this.sendDelay = sendDelay;
     }
@@ -124,7 +125,13 @@ public class TestNetwork extends Network implements Runnable {
         return new Address[] { address };
     }
 
+    
     @Override
+	public Address getLocalAddress() {
+		return address;
+	}
+
+	@Override
     protected void sendNPDU(Address recipient, OctetString router, ByteQueue npdu, boolean broadcast,
             boolean expectsReply) throws BACnetException {
         SendData d = new SendData();

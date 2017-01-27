@@ -418,7 +418,13 @@ public class Ipv6Network extends Network implements Runnable {
         //        }
     }
 
-    private void purgePendingAddressResolutions() {
+    
+    @Override
+	public Address getLocalAddress() {
+		return new Address(getLocalNetworkNumber(), thisVMAC);
+	}
+
+	private void purgePendingAddressResolutions() {
         long now = System.currentTimeMillis();
         List<PendingAddressResolution> toRemove = null;
         for (PendingAddressResolution par : pendingAddressResolutions) {

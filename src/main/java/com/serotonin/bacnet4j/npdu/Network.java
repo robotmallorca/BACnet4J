@@ -176,23 +176,47 @@ abstract public class Network {
     abstract protected OctetString getBroadcastMAC();
 
     abstract public Address[] getAllLocalAddresses();
+    
+    abstract public Address getLocalAddress();
 
     public final void sendAPDU(Address recipient, OctetString router, APDU apdu, boolean broadcast)
             throws BACnetException {
         ByteQueue npdu = new ByteQueue();
 
         NPCI npci;
-        if (recipient.isGlobal())
+        Network localRoute = null;
+        
+        if (recipient.isGlobal()) {
+        	// Send to local routes
+        	npci = new NPCI(getLocalAddress());
+        	if (apdu.getNetworkPriority() != null)
+                npci.priority(apdu.getNetworkPriority());
+        	for (int port : routerPorts) {
+				localRoute = getRouteNetworkFromPort(port);
+				if(localRoute != null) {
+					ByteQueue forwardNpdu = new ByteQueue();
+					npci.write(forwardNpdu);
+					apdu.write(forwardNpdu);
+					localRoute.sendNPDU(recipient, null, forwardNpdu, broadcast, apdu.expectsReply());
+				}
+			}
+        	// Prepare for local delivery
             npci = new NPCI((Address) null);
-        else if (isThisNetwork(recipient)) {
+        } else if (isThisNetwork(recipient)) {
             if (router != null)
                 throw new RuntimeException("Invalid arguments: router address provided for local recipient " + recipient);
             npci = new NPCI(null, null, apdu.expectsReply());
         }
         else {
-            if (router == null)
-                throw new RuntimeException("Invalid arguments: router address not provided for remote recipient " + recipient);
-            npci = new NPCI(recipient, null, apdu.expectsReply());
+            if (router == null) {
+            	localRoute = getRouteNetwork(recipient.getNetworkNumber().intValue());
+            	if(localRoute == null) {
+            		throw new RuntimeException("Invalid arguments: router address not provided for remote recipient " + recipient);
+            	}
+            	npci = new NPCI(recipient, getLocalAddress(), apdu.expectsReply());
+            } else {
+            	npci = new NPCI(recipient, null, apdu.expectsReply());
+            }
         }
 
         if (apdu.getNetworkPriority() != null)
@@ -202,7 +226,11 @@ abstract public class Network {
 
         apdu.write(npdu);
 
-        sendNPDU(recipient, router, npdu, broadcast, apdu.expectsReply());
+        if(localRoute == null) {
+       		sendNPDU(recipient, router, npdu, broadcast, apdu.expectsReply());
+        } else {
+        	localRoute.sendNPDU(recipient, null, npdu, broadcast, apdu.expectsReply());
+        }
     }
 
     public final void sendNetworkMessage(Address recipient, OctetString router, int messageType, byte[] msg,
@@ -210,6 +238,7 @@ abstract public class Network {
         ByteQueue npdu = new ByteQueue();
 
         NPCI npci;
+        Network localRoute = null;
         if (recipient.isGlobal())
             npci = new NPCI(null, null, expectsReply, messageType, 0);
         else if (isThisNetwork(recipient)) {
@@ -218,9 +247,15 @@ abstract public class Network {
             npci = new NPCI(null, null, expectsReply, messageType, 0);
         }
         else {
-            if (router == null)
-                throw new RuntimeException("Invalid arguments: router address not provided for a remote recipient");
-            npci = new NPCI(recipient, null, expectsReply, messageType, 0);
+            if (router == null) {
+            	localRoute = getRouteNetwork(recipient.getNetworkNumber().intValue());
+            	if(localRoute == null) {
+            		throw new RuntimeException("Invalid arguments: router address not provided for a remote recipient");
+            	}
+            	npci = new NPCI(recipient, getLocalAddress(), expectsReply, messageType, 0);
+            } else {
+                npci = new NPCI(recipient, null, expectsReply, messageType, 0);
+            }
         }
         npci.write(npdu);
 
@@ -228,7 +263,11 @@ abstract public class Network {
         if (msg != null)
             npdu.push(msg);
 
-        sendNPDU(recipient, router, npdu, broadcast, expectsReply);
+        if(localRoute == null) {
+        	sendNPDU(recipient, router, npdu, broadcast, expectsReply);
+        } else {
+        	localRoute.sendNPDU(recipient, null, npdu, broadcast, expectsReply);
+        }
     }
 
     abstract protected void sendNPDU(Address recipient, OctetString router, ByteQueue npdu, boolean broadcast,
