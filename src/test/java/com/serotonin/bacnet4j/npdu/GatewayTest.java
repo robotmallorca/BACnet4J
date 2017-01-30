@@ -101,13 +101,15 @@ public class GatewayTest {
 		d1.initialize();
 		d2.initialize();
 		
+		Thread.sleep(100);
+
 		d1.sendGlobalBroadcast(d1.getIAm());
 		d2.sendGlobalBroadcast(d2.getIAm());
 		
 		Thread.sleep(100);
 		
 		assertNotNull(rd1 = d2.getRemoteDevice(1, 10));
-		assertNotNull(rd2 = d1.getRemoteDevice(1, 11));
+		assertNotNull(rd2 = d1.getRemoteDevice(2, 11));
 		
 	}
 	

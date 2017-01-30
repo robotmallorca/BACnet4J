@@ -133,7 +133,9 @@ abstract public class Network {
      * @return Returns the Network object used for routing remoteNetworkNumber or null
      *         if the route don't exists.
      */
-    public Network getRouteNetwork(int remoteNetworkNumber){
+    public Network getRouteNetwork(Integer remoteNetworkNumber){
+    	if(remoteNetworkNumber == null)
+    		return null;
     	synchronized (routes) {
     		return routes.get(remoteNetworkNumber);
 		}
@@ -191,13 +193,13 @@ abstract public class Network {
         	npci = new NPCI(getLocalAddress());
         	if (apdu.getNetworkPriority() != null)
                 npci.priority(apdu.getNetworkPriority());
-        	for (int port : routerPorts) {
-				localRoute = getRouteNetworkFromPort(port);
-				if(localRoute != null) {
+        	for (Integer networkNum : routerPorts) {
+        		Network route = getRouteNetwork(networkNum);
+				if(route != null) {
 					ByteQueue forwardNpdu = new ByteQueue();
 					npci.write(forwardNpdu);
 					apdu.write(forwardNpdu);
-					localRoute.sendNPDU(recipient, null, forwardNpdu, broadcast, apdu.expectsReply());
+					route.sendNPDU(recipient, null, forwardNpdu, broadcast, apdu.expectsReply());
 				}
 			}
         	// Prepare for local delivery
@@ -302,11 +304,13 @@ abstract public class Network {
                 		if(hopcount > 0) {
 	                		// Broadcast to all routes
                 			for(Integer networkNumber:routerPorts) {
-	                			NPDU forwardNpdu = new NPDU(npdu.getFrom(), npdu.getTo(), npdu.getLinkService(), (ByteQueue)npdu.getNetworkMessageData().clone());
-	                			forwardNpdu.setHopCount(hopcount-1);
-	                			if(networkNumber != null && networkNumber > 0) {
+                				if((networkNumber != null) && (networkNumber > 0) && 
+                					((npdu.getFrom() == null) || (networkNumber != npdu.getFrom().getNetworkNumber().intValue()))) 
+                				{
+		                			NPDU forwardNpdu = new NPDU(npdu.getFrom(), npdu.getTo(), npdu.getLinkService(), (ByteQueue)npdu.getNetworkMessageData().clone());
+		                			forwardNpdu.setHopCount(hopcount-1);
 	                				getRouteNetwork(networkNumber).route(forwardNpdu);
-	                			}
+                				}
 	                		}
                 			// Deliver locally
 	                		getTransport().incoming(npdu);
