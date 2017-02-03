@@ -53,7 +53,6 @@ import com.serotonin.bacnet4j.apdu.UnconfirmedRequest;
 import com.serotonin.bacnet4j.enums.MaxSegments;
 import com.serotonin.bacnet4j.exception.BACnetErrorException;
 import com.serotonin.bacnet4j.exception.BACnetException;
-import com.serotonin.bacnet4j.exception.AbortAPDUException;
 import com.serotonin.bacnet4j.exception.BACnetRejectException;
 import com.serotonin.bacnet4j.exception.BACnetServiceException;
 import com.serotonin.bacnet4j.exception.BACnetTimeoutException;
@@ -434,6 +433,7 @@ public class DefaultTransport implements Transport, Runnable {
     private void receiveImpl(NPDU in) {
         if (in.isNetworkMessage()) {
             switch (in.getNetworkMessageType()) {
+            // TODO Implement Who-Is-Router-To-Network
             case 0x1: // I-Am-Router-To-Network
             case 0x2: // I-Could-Be-Router-To-Network
                 ByteQueue data = in.getNetworkMessageData();

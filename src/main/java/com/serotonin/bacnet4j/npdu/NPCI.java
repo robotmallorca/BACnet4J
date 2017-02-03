@@ -96,7 +96,8 @@ public class NPCI {
         if (destination != null) {
             control = control.setBit(5);
             destinationNetwork = destination.getNetworkNumber().intValue();
-            destinationAddress = destination.getMacAddress().getBytes();
+            if(destination.getMacAddress() != null)
+            	destinationAddress = destination.getMacAddress().getBytes();
             if (destinationAddress != null)
                 destinationLength = destinationAddress.length;
             hopCount = 0xFF;

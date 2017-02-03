@@ -41,30 +41,33 @@ public class NPDU {
     private final OctetString linkService;
     private final boolean networkMessage;
     private final int networkMessageType;
+    private final boolean expectsReply;
     private final ByteQueue queue;
     private int hopcount = 0;
 
     /**
      * Constructor for APDU messages.
      */
-    public NPDU(Address from, Address to, OctetString linkService, ByteQueue queue) {
+    public NPDU(Address from, Address to, OctetString linkService, ByteQueue queue, boolean expectsReply) {
         this.from = from;
     	this.to= to;
         this.linkService = linkService;
         this.networkMessage = false;
         this.networkMessageType = -1;
+        this.expectsReply = expectsReply;
         this.queue = queue;
     }
 
     /**
      * Constructor for network messages.
      */
-    public NPDU(Address from, Address to, OctetString linkService, int networkMessageType, ByteQueue queue) {
+    public NPDU(Address from, Address to, OctetString linkService, int networkMessageType, ByteQueue queue, boolean expectsReply) {
         this.from = from;
     	this.to = to;
         this.linkService = linkService;
         this.networkMessage = true;
         this.networkMessageType = networkMessageType;
+        this.expectsReply = expectsReply;
         this.queue = queue;
     }
 
@@ -96,6 +99,10 @@ public class NPDU {
         return networkMessageType;
     }
 
+    public boolean getExpectsReply() {
+    	return expectsReply;
+    }
+    
     public ByteQueue getNetworkMessageData() {
         return queue;
     }
@@ -119,5 +126,9 @@ public class NPDU {
             return "NPDU [from=" + from + ((to==null) ? "":", to=" + to) + ", linkService=" + linkService + ", networkMessageType=" + networkMessageType
                     + "]";
         return "NPDU [from=" + from + ((to==null) ? "":", to=" + to) + ", linkService=" + linkService + ", queue=" + queue + "]";
+    }
+
+    public void write(ByteQueue queue) {
+    	queue.push(this.queue.peekAll());
     }
 }

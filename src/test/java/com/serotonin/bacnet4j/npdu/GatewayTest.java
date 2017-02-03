@@ -8,14 +8,12 @@ import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.apdu.APDU;
 import com.serotonin.bacnet4j.apdu.UnconfirmedRequest;
-import com.serotonin.bacnet4j.enums.MaxApduLength;
 import com.serotonin.bacnet4j.exception.BACnetException;
 import com.serotonin.bacnet4j.npdu.test.TestNetwork;
 import com.serotonin.bacnet4j.service.unconfirmed.WhoIsRequest;
 import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.Transport;
 import com.serotonin.bacnet4j.type.constructed.Address;
-import com.serotonin.bacnet4j.type.primitive.OctetString;
 import com.serotonin.bacnet4j.type.primitive.UnsignedInteger;
 import com.serotonin.bacnet4j.util.sero.ByteQueue;
 import com.serotonin.bacnet4j.util.sero.ThreadUtils;
@@ -60,15 +58,17 @@ public class GatewayTest {
 		assertNull(network.getRouteNetworkFromPort(2));
 		assertNull(network.getRouteNetwork(2));
 		
-		ThreadUtils.sleep(50);
+		ThreadUtils.sleep(100);
 		
-		APDU apdu = new UnconfirmedRequest(new WhoIsRequest());
+		APDU apdu = new UnconfirmedRequest(localDevice.getIAm());
 
 		routeGlobal(network, apdu, address);
 		
 		ByteQueue apduData = new ByteQueue();
 		apdu.write(apduData);
-		
+
+		ThreadUtils.sleep(50);
+
 		assertNotNull(remoteNetwork100.getLastRouted());
 		System.out.println(remoteNetwork100.getLastRouted());
 		assertEquals(apduData.toString(), remoteNetwork100.getLastRouted().getNetworkMessageData().toString());
@@ -80,26 +80,33 @@ public class GatewayTest {
 		apdu = new UnconfirmedRequest(new WhoIsRequest(new UnsignedInteger(1), new UnsignedInteger(10)));
 		
 		routeLocal(network, remoteNetwork100, apdu, address);
+		
+		ThreadUtils.sleep(50);
+		
 		System.out.println(remoteNetwork100.getLastRouted());
 		
 		ByteQueue apduData1 = new ByteQueue();
 		apdu.write(apduData1);
 		assertEquals(apduData1.toString(), remoteNetwork100.getLastRouted().getNetworkMessageData().toString());
-		assertEquals(1, remoteNetwork100.getLastRouted().getFrom().getNetworkNumber().intValue());
+		assertEquals(1000, remoteNetwork100.getLastRouted().getFrom().getNetworkNumber().intValue());
 		assertEquals(apduData.toString(), remoteNetwork101.getLastRouted().getNetworkMessageData().toString());
+	
 	}
 
 	@Test
 	public void Dev2DevTest() throws Exception {
 		LocalDevice d1 = new LocalDevice(1, new DefaultTransport(new NetworkTest(10,"1")));
-		LocalDevice d2 = new LocalDevice(2, new DefaultTransport(new NetworkTest(11,"1")));
+		LocalDevice d2 = new LocalDevice(1, new DefaultTransport(new NetworkTest(11,"1")));
+		LocalDevice d3 = new LocalDevice(2, new DefaultTransport(new NetworkTest(10,"2")));
 		RemoteDevice rd1;
 		RemoteDevice rd2;
 		
 		d1.getNetwork().addRoute(d2.getNetwork());
+		d2.getNetwork().addRoute(d1.getNetwork());
 	
 		d1.initialize();
 		d2.initialize();
+		d3.initialize();
 		
 		Thread.sleep(100);
 
@@ -109,14 +116,23 @@ public class GatewayTest {
 		Thread.sleep(100);
 		
 		assertNotNull(rd1 = d2.getRemoteDevice(1, 10));
-		assertNotNull(rd2 = d1.getRemoteDevice(2, 11));
+		assertNotNull(rd2 = d1.getRemoteDevice(1, 11));
+
+		Network n10 = d1.getNetwork();
+		try {
+			n10.sendNetworkMessage(Address.GLOBAL, null, 0x0, null, true, false);
+		} catch (BACnetException e) {
+			e.printStackTrace();
+			fail("Unexpected Exception");
+		}
 		
+
 	}
 	
 	private void routeLocal(Network network, Network remoteNetwork, APDU apdu, Address from) {
 		ByteQueue npdu = new ByteQueue();
 		
-		NPCI npci = new NPCI(remoteNetwork.getLocalBroadcastAddress(), network.getAllLocalAddresses()[0], apdu.expectsReply());
+		NPCI npci = new NPCI(remoteNetwork.getLocalBroadcastAddress(), new Address(1000, new byte[]{0}), apdu.expectsReply());
 		
 		npci.write(npdu);
 		apdu.write(npdu);
@@ -127,7 +143,7 @@ public class GatewayTest {
 	private void routeGlobal(Network network, APDU apdu, Address from) {
 		ByteQueue npdu = new ByteQueue();
 		
-		NPCI npci = new NPCI((Address) null);
+		NPCI npci = new NPCI(Address.GLOBAL, new Address(1000, new byte[]{0}),false);
 		
 		npci.write(npdu);
 		apdu.write(npdu);
@@ -159,8 +175,10 @@ class NetworkTest extends TestNetwork {
 	}
 
 	@Override
-	protected void routeImpl(NPDU npdu) throws Exception {
+	protected void routeImpl(NPDU npdu, boolean broadcast) throws Exception {
 		System.out.println("routing NPDU: " + npdu);
 		lastRouted = npdu;
+		
+		super.routeImpl(npdu, broadcast);
 	}
 }

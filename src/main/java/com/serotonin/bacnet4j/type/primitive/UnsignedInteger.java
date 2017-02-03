@@ -150,7 +150,7 @@ public class UnsignedInteger extends Primitive {
             return true;
         if (obj == null)
             return false;
-        if (getClass() != obj.getClass())
+        if (!(obj instanceof UnsignedInteger))
             return false;
         final UnsignedInteger other = (UnsignedInteger) obj;
         return bigIntegerValue().equals(other.bigIntegerValue());

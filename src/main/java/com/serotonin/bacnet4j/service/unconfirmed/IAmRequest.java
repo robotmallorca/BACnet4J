@@ -75,7 +75,7 @@ public class IAmRequest extends UnconfirmedRequestService {
         // Make sure we're not hearing from ourselves.
         int myDoi = localDevice.getConfiguration().getInstanceId();
         int remoteDoi = iAmDeviceIdentifier.getInstanceNumber();
-        if (remoteDoi == myDoi) {
+        if ((remoteDoi == myDoi) && localDevice.isThisNetwork(from)) {
             // Get my bacnet address and compare the addresses
             for (Address addr : localDevice.getAllLocalAddresses()) {
                 if (addr.getMacAddress().equals(from.getMacAddress()))

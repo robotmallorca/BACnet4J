@@ -487,7 +487,7 @@ public class LocalDevice {
 
     public RemoteDevice getRemoteDeviceImpl(int instanceId, UnsignedInteger networkNumber) {
         for (RemoteDevice d : remoteDevices) {
-        	if((networkNumber == null && d.getNetworkNumber() == null) || networkNumber == d.getNetworkNumber()) {
+        	if((networkNumber == null && d.getNetworkNumber() == null) || d.getNetworkNumber().equals(networkNumber)) {
         		if (d.getInstanceNumber() == instanceId)
         			return d;
         	}
@@ -623,6 +623,15 @@ public class LocalDevice {
         return transport.getNetwork().getAllLocalAddresses();
     }
 
+    /**
+     * 
+     * @param from
+     * @return Returns true if from is in the same network than this
+     */
+	public boolean isThisNetwork(Address from) {
+		return getNetwork().isThisNetwork(from);
+	}
+
     public IAmRequest getIAm() {
         try {
             return new IAmRequest(configuration.getId(),
@@ -677,4 +686,5 @@ public class LocalDevice {
     public String toString() {
         return "" + configuration.getInstanceId() + ": " + configuration.getObjectName();
     }
+
 }
