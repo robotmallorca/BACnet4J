@@ -2,6 +2,8 @@ package com.serotonin.bacnet4j.npdu;
 
 import static org.junit.Assert.*;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.serotonin.bacnet4j.LocalDevice;
@@ -20,6 +22,32 @@ import com.serotonin.bacnet4j.util.sero.ThreadUtils;
 
 public class GatewayTest {
 
+	private LocalDevice d1;
+	private LocalDevice d2;
+	private LocalDevice d3;
+	
+	@Before
+	public void setup() throws Exception {
+		d1 = new LocalDevice(1, new DefaultTransport(new NetworkTest(10,"1")));
+		d2 = new LocalDevice(1, new DefaultTransport(new NetworkTest(11,"1")));
+		d3 = new LocalDevice(2, new DefaultTransport(new NetworkTest(10,"2")));
+
+		d1.getNetwork().addRoute(d2.getNetwork());
+		d2.getNetwork().addRoute(d1.getNetwork());
+	
+		d1.initialize();
+		d2.initialize();
+		d3.initialize();
+		
+		Thread.sleep(100);
+	}
+
+	@After
+	public void teardown() {
+		d3.terminate();
+		d2.terminate();
+		d1.terminate();
+	}
 	
 	@Test
 	public void routerTest() {
@@ -95,21 +123,9 @@ public class GatewayTest {
 
 	@Test
 	public void Dev2DevTest() throws Exception {
-		LocalDevice d1 = new LocalDevice(1, new DefaultTransport(new NetworkTest(10,"1")));
-		LocalDevice d2 = new LocalDevice(1, new DefaultTransport(new NetworkTest(11,"1")));
-		LocalDevice d3 = new LocalDevice(2, new DefaultTransport(new NetworkTest(10,"2")));
 		RemoteDevice rd1;
 		RemoteDevice rd2;
 		
-		d1.getNetwork().addRoute(d2.getNetwork());
-		d2.getNetwork().addRoute(d1.getNetwork());
-	
-		d1.initialize();
-		d2.initialize();
-		d3.initialize();
-		
-		Thread.sleep(100);
-
 		d1.sendGlobalBroadcast(d1.getIAm());
 		d2.sendGlobalBroadcast(d2.getIAm());
 		
@@ -119,14 +135,13 @@ public class GatewayTest {
 		assertNotNull(rd2 = d1.getRemoteDevice(1, 11));
 
 		Network n10 = d1.getNetwork();
-		try {
-			n10.sendNetworkMessage(Address.GLOBAL, null, 0x0, null, true, false);
-		} catch (BACnetException e) {
-			e.printStackTrace();
-			fail("Unexpected Exception");
-		}
+		n10.sendWhoIsRouterToNetwork(Address.GLOBAL, null, true);
 		
-
+		Thread.sleep(50);
+		NPDU npdu = new NPDU(n10.getLocalAddress(), Address.GLOBAL, null, 0x0, new ByteQueue(), false);
+		assertEquals(npdu.toString(), ((NetworkTest)d2.getNetwork()).getLastRouted().toString());
+		
+		assertEquals(d1.getNetwork().getLocalAddress().getMacAddress(),d3.getNetwork().getTransport().getNetworkRouters().get(11));
 	}
 	
 	private void routeLocal(Network network, Network remoteNetwork, APDU apdu, Address from) {

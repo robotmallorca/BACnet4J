@@ -453,6 +453,27 @@ abstract public class Network {
         return npdu;
     }
 
+	/**
+	 * Sends a Who-Is-Router-To-Network network message
+	 * 
+	 * @param recipient		Recipient address
+	 * @param networkNumber	Network number to query for. Can be null for querying all routers
+	 * @param broadcast		
+	 */
+	public void sendWhoIsRouterToNetwork(Address recipient, UnsignedInteger networkNumber, boolean broadcast) {
+		ByteQueue data = new ByteQueue();
+		
+		if (networkNumber != null) {
+			data.pushU2B(networkNumber.intValue());
+		}
+		try {
+			sendNetworkMessage(recipient, null, 0, (data.size() != 0) ? data.popAll():null, broadcast, false);
+		} catch (BACnetException e) {
+			transport.getLocalDevice().getExceptionDispatcher().fireReceivedException(e);
+		}
+		
+	}
+	
     @Override
     public int hashCode() {
         final int prime = 31;

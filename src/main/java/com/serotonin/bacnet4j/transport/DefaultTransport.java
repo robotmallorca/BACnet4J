@@ -433,7 +433,8 @@ public class DefaultTransport implements Transport, Runnable {
     private void receiveImpl(NPDU in) {
         if (in.isNetworkMessage()) {
             switch (in.getNetworkMessageType()) {
-            // TODO Implement Who-Is-Router-To-Network
+            case 0x0:
+            	// TODO Implement Who-Is-Router-To-Network
             case 0x1: // I-Am-Router-To-Network
             case 0x2: // I-Could-Be-Router-To-Network
                 ByteQueue data = in.getNetworkMessageData();
