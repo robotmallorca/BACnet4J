@@ -487,7 +487,7 @@ public class LocalDevice {
 
     public RemoteDevice getRemoteDeviceImpl(int instanceId, UnsignedInteger networkNumber) {
         for (RemoteDevice d : remoteDevices) {
-        	if((networkNumber == null && d.getNetworkNumber() == null) || d.getNetworkNumber().equals(networkNumber)) {
+        	if(d.isThisNetwork(networkNumber)) {
         		if (d.getInstanceNumber() == instanceId)
         			return d;
         	}

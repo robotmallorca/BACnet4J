@@ -29,18 +29,19 @@
 package com.serotonin.bacnet4j.npdu;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Vector;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.serotonin.bacnet4j.apdu.APDU;
 import com.serotonin.bacnet4j.enums.MaxApduLength;
 import com.serotonin.bacnet4j.exception.BACnetException;
 import com.serotonin.bacnet4j.transport.Transport;
 import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
+import com.serotonin.bacnet4j.type.primitive.Unsigned16;
 import com.serotonin.bacnet4j.type.primitive.UnsignedInteger;
 import com.serotonin.bacnet4j.util.sero.ByteQueue;
 
@@ -53,6 +54,20 @@ abstract public class Network {
     private Map<Integer, Network> routes = new HashMap<Integer, Network>();
     private Vector<Integer> routerPorts = new Vector<>();
 
+    // Network layer message types
+    public static final int WHO_IS_ROUTER_TO_NETWORK = 0x00;
+    public static final int I_AM_ROUTER_TO_NETWORK = 0x01;
+    public static final int I_COULD_BE_ROUTER_TO_NETWORK = 0x02;
+    public static final int REJECT_MESSAGE_TO_NETWORK = 0x03;
+    public static final int ROUTER_BUSY_TO_NETWORK = 0x04;
+    public static final int ROUTER_AVAILABLE_TO_NETWORK = 0x05;
+    public static final int INITIALIZE_ROUTING_TABLE = 0x06;
+    public static final int INITIALIZE_ROUTING_TABLE_ACK = 0x07;
+    public static final int ESTABLISH_CONNECTION_TO_NETWORK = 0x08;
+    public static final int DISCONNECT_CONNECTION_TO_NETWORK = 0x09;
+    public static final int WHAT_IS_NETWORK_NUMBER = 0x12;
+    public static final int NETWORK_NUMBER_IS = 0x13;
+    
     public Network() {
         this(0);
     }
@@ -293,10 +308,14 @@ abstract public class Network {
         try {
             NPDU npdu = handleIncomingDataImpl(queue, linkService);
             if (npdu != null) {
-                LOG.debug("Received NPDU from {}: {}", linkService, npdu);
+                if(isThisAddress(npdu.getFrom())) {
+                	// Discard messages received from ourself
+                	return;
+                }
+                LOG.debug("{}{} Received NPDU from {}: {}", getLocalNetworkNumber(), getLocalAddress().getMacAddress(), linkService, npdu);
                 Address to = npdu.getTo();
-                if(to == null || isThisAddress(npdu.getFrom())) {
-                	// Messages from ourself are already routed, only process they locally
+                if(to == null || isThisAddress(to)) {
+                	// Message (unicast) for this node
                 	getTransport().incoming(npdu);
                 } else {
                 	// The message must be routed to another network
@@ -388,7 +407,7 @@ abstract public class Network {
 	}
 
     /**
-     * Remote network proxies must implement this method to deliver remote NPDUs to
+     * Remote network proxies can override this method to deliver remote NPDUs to
      * the right destination.
      * 
      * @param npdu
@@ -397,7 +416,12 @@ abstract public class Network {
      */
     protected void routeImpl(NPDU npdu, boolean broadcast) throws Exception {
 		ByteQueue data = new ByteQueue();
-		NPCI npci = new NPCI(npdu.getTo(), npdu.getFrom(), npdu.getExpectsReply());
+		NPCI npci;
+		if(npdu.isNetworkMessage()) {
+			npci = new NPCI(npdu.getTo(), npdu.getFrom(), npdu.getExpectsReply(), npdu.getNetworkMessageType(), 0);
+		} else {
+			npci = new NPCI(npdu.getTo(), npdu.getFrom(), npdu.getExpectsReply());
+		}
 		npci.write(data);
 		npdu.write(data);
 		
@@ -467,7 +491,7 @@ abstract public class Network {
 			data.pushU2B(networkNumber.intValue());
 		}
 		try {
-			sendNetworkMessage(recipient, null, 0, (data.size() != 0) ? data.popAll():null, broadcast, false);
+			sendNetworkMessage(recipient, null, WHO_IS_ROUTER_TO_NETWORK, (data.size() != 0) ? data.popAll():null, broadcast, false);
 		} catch (BACnetException e) {
 			transport.getLocalDevice().getExceptionDispatcher().fireReceivedException(e);
 		}
@@ -495,4 +519,64 @@ abstract public class Network {
             return false;
         return true;
     }
+
+    /**
+     * Handles a Who-Is-Router-To-Network request.
+     * 
+     * @param from
+     * @param networkMessageData
+     * @throws BACnetException 
+     */
+	public void handleWhoIsRouter(Address from, ByteQueue data) throws BACnetException {
+		UnsignedInteger networkNumber = null;
+		if(data != null && data.size() >= 2) {
+			networkNumber = new Unsigned16(data.popU2B());
+		}
+		ByteQueue msgData = new ByteQueue();
+		if(networkNumber != null) {
+			// Search a route for networkNumber
+			for (Integer routedNetwork : routerPorts) {
+				if(routedNetwork != null) {
+					if(routedNetwork.intValue() == networkNumber.intValue()) {
+						msgData.pushU2B(networkNumber.intValue());
+						break;
+					}
+					Network route = getRouteNetwork(routedNetwork);
+					OctetString router = route.getTransport().getNetworkRouters().get(networkNumber);
+					if(router != null) {
+						msgData.pushU2B(networkNumber.intValue());
+						break;
+					}
+				}
+			}
+			// TODO No router found. Forward query to all routes 
+		} else {
+			// Collect all routes
+			for(Integer routedNetwork : routerPorts) {
+				if(routedNetwork != null) {
+					msgData.pushU2B(routedNetwork.intValue());
+					Network route = getRouteNetwork(routedNetwork);
+					if(route.getTransport() == null) {
+						LOG.warn("Transport for ({}) is null", route.getLocalAddress());
+						continue;
+					}
+					Iterator<Entry<Integer, OctetString>> it = route.getTransport().getNetworkRouters().entrySet().iterator();
+					while(it.hasNext()) {
+						Entry<Integer, OctetString> entry = it.next();
+						if(entry.getKey().intValue() != getLocalNetworkNumber()) {
+							msgData.pushU2B(entry.getKey().intValue());
+						}
+					}
+				}
+			}
+		}
+		
+		if(msgData.size() > 0) {
+			sendIAmRouterToNetwork(msgData);
+		}
+	}
+
+	private void sendIAmRouterToNetwork(ByteQueue data) throws BACnetException {
+		sendNetworkMessage(getLocalBroadcastAddress(), null, I_AM_ROUTER_TO_NETWORK, data.popAll(), true, false);
+	}
 }

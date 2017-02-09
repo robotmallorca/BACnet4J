@@ -5,12 +5,13 @@ import static org.junit.Assert.*;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.apdu.APDU;
 import com.serotonin.bacnet4j.apdu.UnconfirmedRequest;
-import com.serotonin.bacnet4j.exception.BACnetException;
 import com.serotonin.bacnet4j.npdu.test.TestNetwork;
 import com.serotonin.bacnet4j.service.unconfirmed.WhoIsRequest;
 import com.serotonin.bacnet4j.transport.DefaultTransport;
@@ -22,6 +23,8 @@ import com.serotonin.bacnet4j.util.sero.ThreadUtils;
 
 public class GatewayTest {
 
+	protected static final Logger LOG = LoggerFactory.getLogger(GatewayTest.class);
+	
 	private LocalDevice d1;
 	private LocalDevice d2;
 	private LocalDevice d3;
@@ -98,11 +101,11 @@ public class GatewayTest {
 		ThreadUtils.sleep(50);
 
 		assertNotNull(remoteNetwork100.getLastRouted());
-		System.out.println(remoteNetwork100.getLastRouted());
+		LOG.info(remoteNetwork100.getLastRouted().toString());
 		assertEquals(apduData.toString(), remoteNetwork100.getLastRouted().getNetworkMessageData().toString());
 		
 		assertNotNull(remoteNetwork101.getLastRouted());
-		System.out.println(remoteNetwork101.getLastRouted());
+		LOG.info(remoteNetwork101.getLastRouted().toString());
 		assertEquals(apduData.toString(), remoteNetwork100.getLastRouted().getNetworkMessageData().toString());
 		
 		apdu = new UnconfirmedRequest(new WhoIsRequest(new UnsignedInteger(1), new UnsignedInteger(10)));
@@ -111,7 +114,7 @@ public class GatewayTest {
 		
 		ThreadUtils.sleep(50);
 		
-		System.out.println(remoteNetwork100.getLastRouted());
+		LOG.info(remoteNetwork100.getLastRouted().toString());
 		
 		ByteQueue apduData1 = new ByteQueue();
 		apdu.write(apduData1);
@@ -134,12 +137,10 @@ public class GatewayTest {
 		assertNotNull(rd1 = d2.getRemoteDevice(1, 10));
 		assertNotNull(rd2 = d1.getRemoteDevice(1, 11));
 
-		Network n10 = d1.getNetwork();
-		n10.sendWhoIsRouterToNetwork(Address.GLOBAL, null, true);
+		Network n10 = d3.getNetwork();
+		n10.sendWhoIsRouterToNetwork(n10.getLocalBroadcastAddress(), new UnsignedInteger(11), true);
 		
 		Thread.sleep(50);
-		NPDU npdu = new NPDU(n10.getLocalAddress(), Address.GLOBAL, null, 0x0, new ByteQueue(), false);
-		assertEquals(npdu.toString(), ((NetworkTest)d2.getNetwork()).getLastRouted().toString());
 		
 		assertEquals(d1.getNetwork().getLocalAddress().getMacAddress(),d3.getNetwork().getTransport().getNetworkRouters().get(11));
 	}
@@ -191,7 +192,7 @@ class NetworkTest extends TestNetwork {
 
 	@Override
 	protected void routeImpl(NPDU npdu, boolean broadcast) throws Exception {
-		System.out.println("routing NPDU: " + npdu);
+		GatewayTest.LOG.info("routing NPDU: " + npdu);
 		lastRouted = npdu;
 		
 		super.routeImpl(npdu, broadcast);

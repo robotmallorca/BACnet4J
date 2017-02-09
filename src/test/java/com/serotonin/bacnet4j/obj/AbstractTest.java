@@ -28,7 +28,7 @@ abstract public class AbstractTest {
         d2.sendGlobalBroadcast(d2.getIAm());
 
         // Wait a bit
-        Thread.sleep(100);
+        Thread.sleep(200);
 
         // Get d1 as a remote object.
         rd1 = d2.getRemoteDevice(1);

@@ -185,7 +185,7 @@ public class DefaultTransport implements Transport, Runnable {
         thread.start();
 
         // Send a WhoIsRouter message.
-        network.sendNetworkMessage(getLocalBroadcastAddress(), null, 0, null, true, false);
+        network.sendWhoIsRouterToNetwork(getLocalBroadcastAddress(), null, true);
     }
 
     @Override
@@ -433,15 +433,20 @@ public class DefaultTransport implements Transport, Runnable {
     private void receiveImpl(NPDU in) {
         if (in.isNetworkMessage()) {
             switch (in.getNetworkMessageType()) {
-            case 0x0:
-            	// TODO Implement Who-Is-Router-To-Network
-            case 0x1: // I-Am-Router-To-Network
-            case 0x2: // I-Could-Be-Router-To-Network
+            case Network.WHO_IS_ROUTER_TO_NETWORK:
+            	try {
+					getNetwork().handleWhoIsRouter(in.getFrom(), in.getNetworkMessageData());
+				} catch (BACnetException e) {
+					getLocalDevice().getExceptionDispatcher().fireReceivedException(e);
+				}
+            	break;
+            case Network.I_AM_ROUTER_TO_NETWORK: // I-Am-Router-To-Network
+            case Network.I_COULD_BE_ROUTER_TO_NETWORK: // I-Could-Be-Router-To-Network
                 ByteQueue data = in.getNetworkMessageData();
                 while (data.size() > 1)
                     networkRouters.put(data.popU2B(), in.getFrom().getMacAddress());
                 break;
-            case 0x3: // Reject-Message-To-Network
+            case Network.REJECT_MESSAGE_TO_NETWORK: // Reject-Message-To-Network
                 String reason;
                 int reasonCode = in.getNetworkMessageData().popU1B();
                 if (reasonCode == 0)
