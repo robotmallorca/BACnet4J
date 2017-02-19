@@ -78,10 +78,11 @@ public interface VirtualNetworkLink {
 	 * Sends NPDU to recipient virtual network objects.
 	 * 
 	 * @param recipient
+	 * @param origin
 	 * @param router
 	 * @param npdu
 	 * @param broadcast
 	 * @param expectsReply
 	 */
-	public void sendNPDU(Address recipient, OctetString router, ByteQueue npdu, boolean broadcast, boolean expectsReply);
+	public void sendNPDU(Address recipient, Address origin, OctetString router, ByteQueue npdu, boolean broadcast, boolean expectsReply);
 }

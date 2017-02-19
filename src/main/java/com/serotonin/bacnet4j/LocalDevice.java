@@ -122,7 +122,7 @@ public class LocalDevice {
 
         configuration = new BACnetObject(ObjectType.device, deviceId, "Device " + deviceId);
         configuration.setLocalDevice(this);
-        configuration.writeProperty(PropertyIdentifier.maxApduLengthAccepted, new UnsignedInteger(1476));
+        configuration.writeProperty(PropertyIdentifier.maxApduLengthAccepted, new UnsignedInteger(transport.getNetwork().getMaxApduLength().getMaxLength()));
         configuration.writeProperty(PropertyIdentifier.vendorIdentifier, new Unsigned16(VENDOR_ID));
         configuration.writeProperty(PropertyIdentifier.vendorName,
                 new CharacterString("Serotonin Software Technologies, Inc."));

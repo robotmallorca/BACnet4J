@@ -108,11 +108,14 @@ public class VirtualNetwork extends Network {
 	@Override
 	protected void sendNPDU(Address recipient, OctetString router, ByteQueue npdu, boolean broadcast,
 			boolean expectsReply) throws BACnetException {
-		link.sendNPDU(recipient, router, npdu, broadcast, expectsReply);
+		long size = npdu.size();
+		link.sendNPDU(recipient, getLocalAddress(), router, npdu, broadcast, expectsReply);
+		bytesOut += size;
 	}
 
 	@Override
 	protected NPDU handleIncomingDataImpl(ByteQueue queue, OctetString linkService) throws Exception {
+		bytesIn += queue.size();
 		return parseNpduData(queue, linkService);
 	}
 }

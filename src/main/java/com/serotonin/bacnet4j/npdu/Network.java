@@ -52,7 +52,7 @@ abstract public class Network {
     private Transport transport;
     // Routing map indexed by networkNumber
     private Map<Integer, Network> routes = new HashMap<Integer, Network>();
-    private Vector<Integer> routerPorts = new Vector<>();
+    private Vector<Integer> routerPorts = new Vector<Integer>();
 
     // Network layer message types
     public static final int WHO_IS_ROUTER_TO_NETWORK = 0x00;

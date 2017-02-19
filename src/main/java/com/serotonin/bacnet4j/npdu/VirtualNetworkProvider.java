@@ -74,13 +74,30 @@ public class VirtualNetworkProvider implements VirtualNetworkLink, Runnable {
 		return new VirtualNetwork(this, new Address(localNetworkNumber, macAddress));
 	}
 
-	
+	/**
+	 * VirtualNetwork factory method.
+	 * 
+	 * @param macAddress
+	 * @return Returns a new VirtualNetwork object attached to this link
+	 */
+	public Object getVirtualNetwork(String macAddress) {
+		return getVirtualNetwork(NetworkUtils.toOctetString(macAddress));
+	}
+
 	public VirtualNetworkProvider(Unsigned16 localNetworkNumber, OctetString broadcastMAC, 
 			MaxApduLength maxApduLength) {
 		super();
 		this.maxApduLength = maxApduLength;
 		this.localNetworkNumber = localNetworkNumber;
 		this.broadcastMAC = broadcastMAC;
+	}
+
+
+	public VirtualNetworkProvider(int localNetworkNumber, String broadcastMAC, MaxApduLength maxApduLength) {
+		super();
+		this.maxApduLength = maxApduLength;
+		this.localNetworkNumber = new Unsigned16(localNetworkNumber);
+		this.broadcastMAC = NetworkUtils.toOctetString(broadcastMAC);
 	}
 
 
@@ -137,7 +154,7 @@ public class VirtualNetworkProvider implements VirtualNetworkLink, Runnable {
 	 */
 	@Override
 	public void unregister(VirtualNetwork virtualNetwork) {
-		VirtualNetwork removed = registry.remove(virtualNetwork.getAllLocalAddresses());
+		VirtualNetwork removed = registry.remove(virtualNetwork.getLocalAddress().getMacAddress());
 		if(removed != null && !removed.equals(virtualNetwork)) {
 			LOG.warn("Removed wrong virtual network object: {}", removed);
 		}
@@ -147,9 +164,10 @@ public class VirtualNetworkProvider implements VirtualNetworkLink, Runnable {
 	 * @see com.serotonin.bacnet4j.npdu.VirtualNetworkLink#sendNPDU(com.serotonin.bacnet4j.type.constructed.Address, com.serotonin.bacnet4j.type.primitive.OctetString, com.serotonin.bacnet4j.util.sero.ByteQueue, boolean, boolean)
 	 */
 	@Override
-	public void sendNPDU(Address recipient, OctetString router, ByteQueue npdu, boolean broadcast,
+	public void sendNPDU(Address recipient, Address origin, OctetString router, ByteQueue npdu, boolean broadcast,
 			boolean expectsReply) {
-		queue.add(new MessageData(recipient, router, npdu, broadcast, expectsReply));
+		queue.add(new MessageData(recipient, origin, router, npdu, broadcast, expectsReply));
+		ThreadUtils.notifySync(queue);
 	}
 
 
@@ -184,20 +202,22 @@ public class VirtualNetworkProvider implements VirtualNetworkLink, Runnable {
 	 * @param data
 	 */
 	private void receive(VirtualNetwork network, MessageData data) {
-		network.handleIncomingData(data.npdu, data.getDestination());
+		network.handleIncomingData((ByteQueue)data.npdu.clone(), data.getOrigin());
 	}
 
 	class MessageData {
 		final Address recipient;
+		final Address origin;
 		final OctetString router;
 		final ByteQueue npdu;
 		final boolean broadcast;
 		final boolean expectsReply;
 		
-		public MessageData(Address recipient, OctetString router, ByteQueue npdu, boolean broadcast,
+		public MessageData(Address recipient, Address origin, OctetString router, ByteQueue npdu, boolean broadcast,
 				boolean expectsReply) {
 			super();
 			this.recipient = recipient;
+			this.origin = origin;
 			this.router = router;
 			this.npdu = npdu;
 			this.broadcast = broadcast;
@@ -226,6 +246,15 @@ public class VirtualNetworkProvider implements VirtualNetworkLink, Runnable {
 			
 			return recipient.getMacAddress();
 		}
+
+		/**
+		 * @return Returns the origin MAC
+		 */
+		public OctetString getOrigin() {
+			return origin.getMacAddress();
+		}
+		
+		
 	}
 
 }
