@@ -47,7 +47,7 @@ public class DaysOfWeek extends BitString {
     }
 
     public boolean contains(int day) {
-        return getValue()[day];
+        return getValue()[day-1];
     }
 
     public boolean isMonday() {
