@@ -80,8 +80,8 @@ public class VirtualNetworkProvider implements VirtualNetworkLink, Runnable {
 	 * @param macAddress
 	 * @return Returns a new VirtualNetwork object attached to this link
 	 */
-	public Object getVirtualNetwork(String macAddress) {
-		return getVirtualNetwork(NetworkUtils.toOctetString(macAddress));
+	public VirtualNetwork getVirtualNetwork(String macAddress) {
+		return getVirtualNetwork(VirtualNetworkUtils.toOctetString(macAddress));
 	}
 
 	public VirtualNetworkProvider(Unsigned16 localNetworkNumber, OctetString broadcastMAC, 
@@ -97,7 +97,7 @@ public class VirtualNetworkProvider implements VirtualNetworkLink, Runnable {
 		super();
 		this.maxApduLength = maxApduLength;
 		this.localNetworkNumber = new Unsigned16(localNetworkNumber);
-		this.broadcastMAC = NetworkUtils.toOctetString(broadcastMAC);
+		this.broadcastMAC = VirtualNetworkUtils.toOctetString(broadcastMAC);
 	}
 
 

@@ -50,7 +50,7 @@ import com.serotonin.bacnet4j.util.DiscoveryUtils;
  */
 public class VirtualNetworkTest {
 
-	protected static final Logger LOG = LoggerFactory.getLogger(GatewayTest.class);
+	protected static final Logger LOG = LoggerFactory.getLogger(VirtualNetworkTest.class);
 	
 	private LocalDevice d1;
 	private LocalDevice d2;
