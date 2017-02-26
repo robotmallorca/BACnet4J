@@ -68,6 +68,8 @@ public class SharedQueueTransportTest {
 			devices[i].initialize();
 		}
 		
+		Network network = devices[0].getNetwork();
+		network.sendWhoIsRouterToNetwork(network.getLocalBroadcastAddress(), null, true);
 	}
 
 	/**

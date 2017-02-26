@@ -61,6 +61,9 @@ public class DefaultTransport extends AbstractTransport implements Runnable {
     protected void initializeImpl() throws Exception {
         thread = new Thread(this, "BACnet4J transport");
         thread.start();
+        
+        // Send a WhoIsRouter message.
+        network.sendWhoIsRouterToNetwork(getLocalBroadcastAddress(), null, true);
     }
 
     @Override

@@ -30,7 +30,6 @@ package com.serotonin.bacnet4j.obj;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
-import java.util.TimerTask;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,6 +72,7 @@ import com.serotonin.bacnet4j.type.primitive.Primitive;
 import com.serotonin.bacnet4j.type.primitive.UnsignedInteger;
 import com.serotonin.bacnet4j.util.ClockTimeSource;
 import com.serotonin.bacnet4j.util.TimeSource;
+import com.serotonin.bacnet4j.util.scheduler.TimerTask;
 import com.serotonin.bacnet4j.util.sero.Utils;
 
 public class ScheduleObject<T extends Primitive> extends BACnetObject {

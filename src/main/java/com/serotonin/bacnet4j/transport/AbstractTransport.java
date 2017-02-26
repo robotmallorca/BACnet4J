@@ -176,9 +176,6 @@ public abstract class AbstractTransport implements Transport {
         network.initialize(this);
         
         initializeImpl();
-
-        // Send a WhoIsRouter message.
-        network.sendWhoIsRouterToNetwork(getLocalBroadcastAddress(), null, true);
     }
 
     protected abstract void initializeImpl() throws Exception;

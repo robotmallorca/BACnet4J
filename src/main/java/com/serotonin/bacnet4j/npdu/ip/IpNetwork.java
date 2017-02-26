@@ -40,7 +40,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.TimerTask;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.slf4j.Logger;
@@ -56,6 +55,7 @@ import com.serotonin.bacnet4j.npdu.NetworkIdentifier;
 import com.serotonin.bacnet4j.transport.Transport;
 import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
+import com.serotonin.bacnet4j.util.scheduler.TimerTask;
 import com.serotonin.bacnet4j.util.sero.ByteQueue;
 
 public class IpNetwork extends Network implements Runnable {

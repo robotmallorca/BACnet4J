@@ -33,7 +33,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Timer;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.serotonin.bacnet4j.enums.MaxApduLength;
@@ -80,6 +79,8 @@ import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
 import com.serotonin.bacnet4j.type.primitive.Unsigned16;
 import com.serotonin.bacnet4j.type.primitive.UnsignedInteger;
 import com.serotonin.bacnet4j.util.RequestUtils;
+import com.serotonin.bacnet4j.util.scheduler.Scheduler;
+import com.serotonin.bacnet4j.util.scheduler.Scheduler.Timer;
 import com.serotonin.bacnet4j.util.sero.Utils;
 
 /**
@@ -94,6 +95,7 @@ import com.serotonin.bacnet4j.util.sero.Utils;
 public class LocalDevice {
     private static final int VENDOR_ID = 236; // Serotonin Software
 
+    private static final Scheduler scheduler = new Scheduler(5);
     private final Transport transport;
     private final BACnetObject configuration;
     private final List<BACnetObject> localObjects = new CopyOnWriteArrayList<BACnetObject>();
@@ -118,7 +120,7 @@ public class LocalDevice {
         this.transport = transport;
         transport.setLocalDevice(this);
 
-        timer = new Timer("BACnet4J maintenance timer");
+        timer = scheduler.getTimer();
 
         configuration = new BACnetObject(ObjectType.device, deviceId, "Device " + deviceId);
         configuration.setLocalDevice(this);
@@ -230,7 +232,7 @@ public class LocalDevice {
     }
 
     public synchronized void terminate() {
-        timer.cancel();
+    	scheduler.releaseTimer(timer);
         transport.terminate();
         initialized = false;
     }
