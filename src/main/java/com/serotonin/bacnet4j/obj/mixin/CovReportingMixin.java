@@ -30,7 +30,6 @@ package com.serotonin.bacnet4j.obj.mixin;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TimerTask;
 
 import com.serotonin.bacnet4j.exception.BACnetRuntimeException;
 import com.serotonin.bacnet4j.exception.BACnetServiceException;
@@ -53,6 +52,7 @@ import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
 import com.serotonin.bacnet4j.type.primitive.Real;
 import com.serotonin.bacnet4j.type.primitive.UnsignedInteger;
+import com.serotonin.bacnet4j.util.scheduler.TimerTask;
 
 /**
  * Could add support for COV_Period...

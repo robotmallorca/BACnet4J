@@ -33,7 +33,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Timer;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.serotonin.bacnet4j.enums.MaxApduLength;
@@ -80,6 +79,8 @@ import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
 import com.serotonin.bacnet4j.type.primitive.Unsigned16;
 import com.serotonin.bacnet4j.type.primitive.UnsignedInteger;
 import com.serotonin.bacnet4j.util.RequestUtils;
+import com.serotonin.bacnet4j.util.scheduler.Scheduler;
+import com.serotonin.bacnet4j.util.scheduler.Scheduler.Timer;
 import com.serotonin.bacnet4j.util.sero.Utils;
 
 /**
@@ -94,6 +95,9 @@ import com.serotonin.bacnet4j.util.sero.Utils;
 public class LocalDevice {
     private static final int VENDOR_ID = 236; // Serotonin Software
 
+    private static final int DEFAULT_SCHEDULER_THREADS = 5; 
+
+    private static final Scheduler scheduler = new Scheduler(DEFAULT_SCHEDULER_THREADS);
     private final Transport transport;
     private final BACnetObject configuration;
     private final List<BACnetObject> localObjects = new CopyOnWriteArrayList<BACnetObject>();
@@ -118,11 +122,11 @@ public class LocalDevice {
         this.transport = transport;
         transport.setLocalDevice(this);
 
-        timer = new Timer("BACnet4J maintenance timer");
+        timer = scheduler.getTimer();
 
         configuration = new BACnetObject(ObjectType.device, deviceId, "Device " + deviceId);
         configuration.setLocalDevice(this);
-        configuration.writeProperty(PropertyIdentifier.maxApduLengthAccepted, new UnsignedInteger(1476));
+        configuration.writeProperty(PropertyIdentifier.maxApduLengthAccepted, new UnsignedInteger(transport.getNetwork().getMaxApduLength().getMaxLength()));
         configuration.writeProperty(PropertyIdentifier.vendorIdentifier, new Unsigned16(VENDOR_ID));
         configuration.writeProperty(PropertyIdentifier.vendorName,
                 new CharacterString("Serotonin Software Technologies, Inc."));
@@ -230,7 +234,7 @@ public class LocalDevice {
     }
 
     public synchronized void terminate() {
-        timer.cancel();
+    	scheduler.releaseTimer(timer);
         transport.terminate();
         initialized = false;
     }
@@ -448,14 +452,28 @@ public class LocalDevice {
     // Remote device management
     //
     public RemoteDevice getRemoteDevice(int instanceId) throws BACnetException {
-        RemoteDevice d = getRemoteDeviceImpl(instanceId);
+    	return getRemoteDevice(instanceId, null);
+    }
+
+    public RemoteDevice getRemoteDevice(int instanceId, int networkNumber) throws BACnetException {
+    	return getRemoteDevice(instanceId, new UnsignedInteger(networkNumber));
+    }
+    
+    public RemoteDevice getRemoteDevice(int instanceId, UnsignedInteger networkNumber) throws BACnetException {
+        RemoteDevice d = getRemoteDeviceImpl(instanceId, networkNumber);
         if (d == null)
             throw new BACnetException("Unknown device: instance id=" + instanceId);
         return d;
     }
-
+    
     public RemoteDevice getRemoteDeviceCreate(int instanceId, Address address) {
-        RemoteDevice d = getRemoteDeviceImpl(instanceId);
+    	UnsignedInteger networkNumber;
+    	if(address == null) {
+    		networkNumber = null;
+    	} else {
+    		networkNumber = address.getNetworkNumber();
+    	}
+        RemoteDevice d = getRemoteDeviceImpl(instanceId, networkNumber);
         if (d == null) {
             if (address == null)
                 throw new NullPointerException("addr cannot be null");
@@ -471,10 +489,12 @@ public class LocalDevice {
         remoteDevices.add(d);
     }
 
-    public RemoteDevice getRemoteDeviceImpl(int instanceId) {
+    public RemoteDevice getRemoteDeviceImpl(int instanceId, UnsignedInteger networkNumber) {
         for (RemoteDevice d : remoteDevices) {
-            if (d.getInstanceNumber() == instanceId)
-                return d;
+        	if(d.isThisNetwork(networkNumber)) {
+        		if (d.getInstanceNumber() == instanceId)
+        			return d;
+        	}
         }
         return null;
     }
@@ -607,6 +627,15 @@ public class LocalDevice {
         return transport.getNetwork().getAllLocalAddresses();
     }
 
+    /**
+     * 
+     * @param from
+     * @return Returns true if from is in the same network than this
+     */
+	public boolean isThisNetwork(Address from) {
+		return getNetwork().isThisNetwork(from);
+	}
+
     public IAmRequest getIAm() {
         try {
             return new IAmRequest(configuration.getId(),
@@ -625,7 +654,7 @@ public class LocalDevice {
     // Manual device discovery
     //
     public RemoteDevice findRemoteDevice(Address address, int deviceId) throws BACnetException {
-        RemoteDevice d = getRemoteDeviceImpl(deviceId);
+        RemoteDevice d = getRemoteDeviceImpl(deviceId, address.getNetworkNumber());
 
         if (d == null) {
             ObjectIdentifier deviceOid = new ObjectIdentifier(ObjectType.device, deviceId);
@@ -661,4 +690,5 @@ public class LocalDevice {
     public String toString() {
         return "" + configuration.getInstanceId() + ": " + configuration.getObjectName();
     }
+
 }

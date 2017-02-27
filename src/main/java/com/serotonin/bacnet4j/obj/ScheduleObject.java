@@ -30,7 +30,6 @@ package com.serotonin.bacnet4j.obj;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
-import java.util.TimerTask;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,6 +72,7 @@ import com.serotonin.bacnet4j.type.primitive.Primitive;
 import com.serotonin.bacnet4j.type.primitive.UnsignedInteger;
 import com.serotonin.bacnet4j.util.ClockTimeSource;
 import com.serotonin.bacnet4j.util.TimeSource;
+import com.serotonin.bacnet4j.util.scheduler.TimerTask;
 import com.serotonin.bacnet4j.util.sero.Utils;
 
 public class ScheduleObject<T extends Primitive> extends BACnetObject {
@@ -411,10 +411,8 @@ public class ScheduleObject<T extends Primitive> extends BACnetObject {
             else {
                 final ObjectIdentifier devId = dopr.getDeviceIdentifier();
                 final ObjectIdentifier oid = dopr.getObjectIdentifier();
-                RemoteDevice d = getLocalDevice().getRemoteDeviceImpl(devId.getInstanceNumber());
-                if (d == null)
-                    LOG.warn("Schedule failed to write to unknown remote device {}", devId);
-                else {
+                try {
+                	RemoteDevice d = getLocalDevice().getRemoteDevice(devId.getInstanceNumber());
                     WritePropertyRequest req = new WritePropertyRequest(oid, dopr.getPropertyIdentifier(),
                             dopr.getPropertyArrayIndex(), value, priorityForWriting);
                     getLocalDevice().send(d, req, new ResponseConsumer() {
@@ -433,6 +431,9 @@ public class ScheduleObject<T extends Primitive> extends BACnetObject {
                             LOG.error("Schedule failed to write to {} in {}", oid, devId, e);
                         }
                     });
+                } catch(BACnetException e) {
+                	LOG.warn(e.getMessage());
+                	LOG.warn("Schedule failed to write to unknown remote device {}", devId);
                 }
             }
         }

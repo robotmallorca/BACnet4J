@@ -28,9 +28,9 @@
  */
 package com.serotonin.bacnet4j.transport;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,15 +39,14 @@ import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
 
 /**
- * This is a non-thread safe class for maintaining the list of pending requests at a local device. Access to this is
- * exclusively from Transport, which uses a single management thread.
+ * Class for maintaining the list of pending requests at a local device.
  * 
  * @author Matthew
  */
 public class UnackedMessages {
     static final Logger LOG = LoggerFactory.getLogger(UnackedMessages.class);
 
-    private final Map<UnackedMessageKey, UnackedMessageContext> requests = new HashMap<UnackedMessageKey, UnackedMessageContext>();
+    private final Map<UnackedMessageKey, UnackedMessageContext> requests = Collections.synchronizedMap(new HashMap<UnackedMessageKey, UnackedMessageContext>());
     private byte nextInvokeId;
 
     /**
@@ -62,15 +61,17 @@ public class UnackedMessages {
             // We set the server value in the key to true so that it matches with the message from the server.
             key = new UnackedMessageKey(address, linkService, nextInvokeId++, true);
 
-            if (requests.containsKey(key)) {
-                // Key collision. Try again unless we've tried too many times.
-                if (--attempts > 0)
-                    continue;
-                throw new BACnetRuntimeException("Cannot enter a client into the un-acked messages list. key=" + key);
+            synchronized (requests) {
+	            if (requests.containsKey(key)) {
+	                // Key collision. Try again unless we've tried too many times.
+	                if (--attempts > 0)
+	                    continue;
+	                throw new BACnetRuntimeException("Cannot enter a client into the un-acked messages list. key=" + key);
+	            }
+	
+	            // Found a good id. Use it and exit.
+	            requests.put(key, ctx);
             }
-
-            // Found a good id. Use it and exit.
-            requests.put(key, ctx);
             break;
         }
 
@@ -84,9 +85,11 @@ public class UnackedMessages {
         // We set the server value in the key to false so that it matches with the message from the client.
         UnackedMessageKey key = new UnackedMessageKey(address, linkService, id, false);
 
-        if (requests.containsKey(key))
-            throw new BACnetRuntimeException("Cannot enter a server into the un-acked messages list. key=" + key);
-        requests.put(key, ctx);
+        synchronized(requests) {
+	        if (requests.containsKey(key))
+	            throw new BACnetRuntimeException("Cannot enter a server into the un-acked messages list. key=" + key);
+	        requests.put(key, ctx);
+        }
 
         return key;
     }

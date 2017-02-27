@@ -202,6 +202,24 @@ public class RemoteDevice implements Serializable {
             maxReadMultipleReferences = (int) (getMaxReadMultipleReferences() * 0.75);
     }
 
+	public UnsignedInteger getNetworkNumber() {
+		return address.getNetworkNumber();
+	}
+
+	/**
+	 * 
+	 * @param networkNumber
+	 * @return Returns 'true' if address is in the same network than this
+	 */
+	public boolean isThisNetwork(UnsignedInteger networkNumber) {
+		if((networkNumber == null || networkNumber.intValue() == 0) && (getNetworkNumber() == null || getNetworkNumber().intValue() == 0))
+			return true;
+		if(getNetworkNumber().equals(networkNumber))
+			return true;
+		
+		return false;
+	}
+	
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -230,4 +248,5 @@ public class RemoteDevice implements Serializable {
             return false;
         return true;
     }
+
 }

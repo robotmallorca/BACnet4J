@@ -65,6 +65,7 @@ public class TestNetwork extends Network implements Runnable {
     }
 
     public TestNetwork(Address address, int sendDelay) {
+    	super(address.getNetworkNumber().intValue());
         this.address = address;
         this.sendDelay = sendDelay;
     }
@@ -124,7 +125,13 @@ public class TestNetwork extends Network implements Runnable {
         return new Address[] { address };
     }
 
+    
     @Override
+	public Address getLocalAddress() {
+		return address;
+	}
+
+	@Override
     protected void sendNPDU(Address recipient, OctetString router, ByteQueue npdu, boolean broadcast,
             boolean expectsReply) throws BACnetException {
         SendData d = new SendData();
@@ -147,12 +154,14 @@ public class TestNetwork extends Network implements Runnable {
                 ThreadUtils.sleep(sendDelay);
 
                 if (d.recipient.equals(getLocalBroadcastAddress()) || d.recipient.equals(Address.GLOBAL)) {
-                    for (TestNetwork network : instances.values())
-                        receive(network, d.data);
+                    for (TestNetwork network : instances.values()) {
+                    	if(network.getLocalNetworkNumber() == this.getLocalNetworkNumber())
+                    		receive(network, d.data);
+                    }
                 }
                 else {
                     TestNetwork network = instances.get(d.recipient);
-                    if (network != null)
+                    if (network != null && network.getLocalNetworkNumber() == this.getLocalNetworkNumber())
                         receive(network, d.data);
                 }
             }

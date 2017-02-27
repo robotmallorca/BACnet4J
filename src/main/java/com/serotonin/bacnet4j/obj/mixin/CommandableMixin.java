@@ -35,8 +35,6 @@ import static com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier.presentV
 import static com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier.priorityArray;
 import static com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier.relinquishDefault;
 
-import java.util.TimerTask;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +52,7 @@ import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 import com.serotonin.bacnet4j.type.primitive.Boolean;
 import com.serotonin.bacnet4j.type.primitive.Null;
 import com.serotonin.bacnet4j.type.primitive.UnsignedInteger;
+import com.serotonin.bacnet4j.util.scheduler.TimerTask;
 
 public class CommandableMixin extends AbstractMixin {
     static final Logger LOG = LoggerFactory.getLogger(CommandableMixin.class);

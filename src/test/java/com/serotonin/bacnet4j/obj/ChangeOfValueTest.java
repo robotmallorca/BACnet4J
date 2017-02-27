@@ -148,7 +148,7 @@ public class ChangeOfValueTest extends AbstractTest {
                 subscription.getRecipient());
 
         // Subscribing should have caused a notification to be sent.
-        Thread.sleep(50);
+        Thread.sleep(100);
         assertEquals(1, listener.notifs.size());
         Map<String, Object> notif = listener.notifs.remove(0);
         assertEquals(new UnsignedInteger(4), notif.get("subscriberProcessIdentifier"));

@@ -40,7 +40,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.TimerTask;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.slf4j.Logger;
@@ -56,6 +55,7 @@ import com.serotonin.bacnet4j.npdu.NetworkIdentifier;
 import com.serotonin.bacnet4j.transport.Transport;
 import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
+import com.serotonin.bacnet4j.util.scheduler.TimerTask;
 import com.serotonin.bacnet4j.util.sero.ByteQueue;
 
 public class IpNetwork extends Network implements Runnable {
@@ -206,11 +206,10 @@ public class IpNetwork extends Network implements Runnable {
         localBindAddress = InetAddrCache.get(localBindAddressStr, port);
 
         if (reuseAddress) {
-            socket = new DatagramSocket();
+            socket = new DatagramSocket(localBindAddress);
+            socket.setReuseAddress(true);
             if (!socket.getReuseAddress())
                 LOG.warn("reuseAddress was set, but not supported by the underlying platform");
-            socket.setReuseAddress(true);
-            socket.bind(localBindAddress);
         }
         else
             socket = new DatagramSocket(localBindAddress);
@@ -511,7 +510,7 @@ public class IpNetwork extends Network implements Runnable {
             ArrayList<Address> result = new ArrayList<Address>();
             for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
                 for (InetAddress addr : Collections.list(iface.getInetAddresses())) {
-                    if (!addr.isLoopbackAddress() && addr.isSiteLocalAddress())
+                    if (!addr.isLoopbackAddress() /*&& addr.isSiteLocalAddress()*/)
                         result.add(getAddress(addr));
                 }
             }
@@ -538,7 +537,13 @@ public class IpNetwork extends Network implements Runnable {
         }
     }
 
+    
     @Override
+	public Address getLocalAddress() {
+		return IpNetworkUtils.toAddress(localBindAddress);
+	}
+
+	@Override
     public int hashCode() {
         final int prime = 31;
         int result = super.hashCode();

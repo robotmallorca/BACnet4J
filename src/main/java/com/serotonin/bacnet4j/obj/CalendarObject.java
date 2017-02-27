@@ -30,7 +30,6 @@ package com.serotonin.bacnet4j.obj;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
-import java.util.TimerTask;
 
 import com.serotonin.bacnet4j.exception.BACnetServiceException;
 import com.serotonin.bacnet4j.type.Encodable;
@@ -45,6 +44,7 @@ import com.serotonin.bacnet4j.type.primitive.Boolean;
 import com.serotonin.bacnet4j.type.primitive.Date;
 import com.serotonin.bacnet4j.util.ClockTimeSource;
 import com.serotonin.bacnet4j.util.TimeSource;
+import com.serotonin.bacnet4j.util.scheduler.TimerTask;
 
 public class CalendarObject extends BACnetObject {
     private static final long serialVersionUID = 4337001513572175841L;

@@ -37,30 +37,37 @@ import com.serotonin.bacnet4j.util.sero.ByteQueue;
 
 public class NPDU {
     private final Address from;
+    private final Address to;
     private final OctetString linkService;
     private final boolean networkMessage;
     private final int networkMessageType;
+    private final boolean expectsReply;
     private final ByteQueue queue;
+    private int hopcount = 0;
 
     /**
      * Constructor for APDU messages.
      */
-    public NPDU(Address from, OctetString linkService, ByteQueue queue) {
+    public NPDU(Address from, Address to, OctetString linkService, ByteQueue queue, boolean expectsReply) {
         this.from = from;
+    	this.to= to;
         this.linkService = linkService;
         this.networkMessage = false;
         this.networkMessageType = -1;
+        this.expectsReply = expectsReply;
         this.queue = queue;
     }
 
     /**
      * Constructor for network messages.
      */
-    public NPDU(Address from, OctetString linkService, int networkMessageType, ByteQueue queue) {
+    public NPDU(Address from, Address to, OctetString linkService, int networkMessageType, ByteQueue queue, boolean expectsReply) {
         this.from = from;
+    	this.to = to;
         this.linkService = linkService;
         this.networkMessage = true;
         this.networkMessageType = networkMessageType;
+        this.expectsReply = expectsReply;
         this.queue = queue;
     }
 
@@ -68,6 +75,18 @@ public class NPDU {
         return from;
     }
 
+    public Address getTo() {
+    	return to;
+    }
+    
+    public int getHopCount(){
+    	return hopcount;
+    }
+    
+    public void setHopCount(int value) {
+    	hopcount = value;
+    }
+    
     public OctetString getLinkService() {
         return linkService;
     }
@@ -80,6 +99,10 @@ public class NPDU {
         return networkMessageType;
     }
 
+    public boolean getExpectsReply() {
+    	return expectsReply;
+    }
+    
     public ByteQueue getNetworkMessageData() {
         return queue;
     }
@@ -100,8 +123,12 @@ public class NPDU {
     @Override
     public String toString() {
         if (networkMessage)
-            return "NPDU [from=" + from + ", linkService=" + linkService + ", networkMessageType=" + networkMessageType
+            return "NPDU [from=" + from + ((to==null) ? "":", to=" + to) + ", linkService=" + linkService + ", networkMessageType=" + networkMessageType
                     + "]";
-        return "NPDU [from=" + from + ", linkService=" + linkService + ", queue=" + queue + "]";
+        return "NPDU [from=" + from + ((to==null) ? "":", to=" + to) + ", linkService=" + linkService + ", queue=" + queue + "]";
+    }
+
+    public void write(ByteQueue queue) {
+    	queue.push(this.queue.peekAll());
     }
 }
