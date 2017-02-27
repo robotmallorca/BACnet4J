@@ -92,7 +92,7 @@ public class VirtualNetworkTest {
 	@Test
 	public void testGetNetworkIdentifier() {
 		VirtualNetwork network = (VirtualNetwork)d1.getNetwork();
-		NetworkIdentifier expected = new VirtualNetworkIdentifier(new Address(100, NetworkUtils.toOctetString("1")));
+		NetworkIdentifier expected = new VirtualNetworkIdentifier(new Address(100, VirtualNetworkUtils.toOctetString("1")));
 		
 		assertEquals(expected, network.getNetworkIdentifier());
 	}
@@ -136,7 +136,7 @@ public class VirtualNetworkTest {
 		assertEquals(refcountOut + 20, d1.getBytesOut());
 		assertEquals(refcountIn + 20, d2.getBytesIn());
 		
-		rd1 = d2.getRemoteDevice(new Address(NetworkUtils.toOctetString("1")));
+		rd1 = d2.getRemoteDevice(new Address(VirtualNetworkUtils.toOctetString("1")));
 		
 		assertNotNull(rd1);
 		

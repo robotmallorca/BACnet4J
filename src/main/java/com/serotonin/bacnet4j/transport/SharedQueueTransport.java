@@ -38,8 +38,10 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.npdu.NPDU;
 import com.serotonin.bacnet4j.npdu.Network;
+import com.serotonin.bacnet4j.util.scheduler.TimerTask;
 
 /**
  * Class that implements a variant of {@link DefaultTransport} where the message queues of all instances
@@ -55,26 +57,20 @@ import com.serotonin.bacnet4j.npdu.Network;
 public class SharedQueueTransport extends AbstractTransport {
     static final Logger LOG = LoggerFactory.getLogger(SharedQueueTransport.class);
     
-    /**
-     * Size of the threadpool used for maintenance tasks.
-     */
-    static final int MAINTENANCE_POOL_SIZE = 5;
-
+    static final int DEFAULT_TRANSPORT_THREADS = 10;
+    
 	/**
 	 * Threadpool used for processing in/out frames
 	 */
 	private static ExecutorService executor = null;
-	/**
-	 * Threadpool used for maintenance periodic tasks
-	 */
-	private static ScheduledExecutorService scheduler = null;
 	/**
 	 * Counter of active instances of this class. Used for correctly shutdown executor.
 	 */
 	private static Integer instanceCounter = 0;
 	
 	private boolean initialized = false;
-	private ScheduledFuture<?> scheduledTask;
+	private TimerTask scheduledTask = null;
+	private static int threadpoolSize = DEFAULT_TRANSPORT_THREADS;
 	
 	/**
 	 * @param network
@@ -83,6 +79,10 @@ public class SharedQueueTransport extends AbstractTransport {
 		super(network);
 	}
 
+	public static void setThreadpoolSize(int poolSize) {
+		threadpoolSize = poolSize;
+	}
+	
 	/* (non-Javadoc)
 	 * @see com.serotonin.bacnet4j.transport.AbstractTransport#initializeImpl()
 	 */
@@ -93,21 +93,20 @@ public class SharedQueueTransport extends AbstractTransport {
         		if(instanceCounter != 0) {
         			LOG.error("Bad value for 'instanceCounter'. Must be 0, actual value = {}", instanceCounter);
         		}
-        		executor = Executors.newCachedThreadPool();
-        	}
-        	if(scheduler == null) {
-        		scheduler = Executors.newScheduledThreadPool(MAINTENANCE_POOL_SIZE);
+        		executor = Executors.newFixedThreadPool(threadpoolSize);
         	}
         	if(!initialized) {
         		instanceCounter++;
         		initialized = true;
-        		scheduledTask = scheduler.scheduleWithFixedDelay(new Runnable() {
+        		scheduledTask = new TimerTask() {
 					
 					@Override
 					public void run() {
 						expire();
+						
 					}
-				}, timeout, timeout, TimeUnit.MILLISECONDS);
+				};
+				getLocalDevice().getTimer().schedule(scheduledTask, timeout, timeout);
         	}
 		}
 	}
@@ -119,7 +118,7 @@ public class SharedQueueTransport extends AbstractTransport {
 	protected void terminateImpl() {
 		synchronized (instanceCounter) {
 			if(initialized) {
-				scheduledTask.cancel(false);
+				scheduledTask.cancel();
 
 				instanceCounter--;
 				if(instanceCounter < 0) {
@@ -129,8 +128,6 @@ public class SharedQueueTransport extends AbstractTransport {
 					terminateExecutor(executor);
 					LOG.info("Executed {} tasks using a maximum of {} threads", ((ThreadPoolExecutor)executor).getTaskCount(), ((ThreadPoolExecutor)executor).getLargestPoolSize());
 					executor = null;
-					terminateExecutor(scheduler);
-					scheduler = null;
 				}
 				initialized = false;
 			}

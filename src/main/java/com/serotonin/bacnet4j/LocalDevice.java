@@ -95,7 +95,9 @@ import com.serotonin.bacnet4j.util.sero.Utils;
 public class LocalDevice {
     private static final int VENDOR_ID = 236; // Serotonin Software
 
-    private static final Scheduler scheduler = new Scheduler(5);
+    private static final int DEFAULT_SCHEDULER_THREADS = 5; 
+
+    private static final Scheduler scheduler = new Scheduler(DEFAULT_SCHEDULER_THREADS);
     private final Transport transport;
     private final BACnetObject configuration;
     private final List<BACnetObject> localObjects = new CopyOnWriteArrayList<BACnetObject>();

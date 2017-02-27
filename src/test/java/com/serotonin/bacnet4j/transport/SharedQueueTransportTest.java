@@ -41,8 +41,8 @@ import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.enums.MaxApduLength;
 import com.serotonin.bacnet4j.exception.BACnetException;
 import com.serotonin.bacnet4j.npdu.Network;
-import com.serotonin.bacnet4j.npdu.NetworkUtils;
 import com.serotonin.bacnet4j.npdu.VirtualNetworkProvider;
+import com.serotonin.bacnet4j.npdu.VirtualNetworkUtils;
 import com.serotonin.bacnet4j.type.constructed.Address;
 
 /**
@@ -63,6 +63,7 @@ public class SharedQueueTransportTest {
 	@Before
 	public void setUp() throws Exception {
 		networkProvider.initilize();
+		SharedQueueTransport.setThreadpoolSize(5);
 		for(int i = 0; i < NUM_DEVICES; ++i) {
 			devices[i] = new LocalDevice(i+1, new SharedQueueTransport((Network)networkProvider.getVirtualNetwork(String.valueOf(i+1))));
 			devices[i].initialize();
@@ -89,11 +90,11 @@ public class SharedQueueTransportTest {
 		RemoteDevice rd5 = null;
 		
 		devices[0].sendGlobalBroadcast(devices[0].getIAm());
-		Thread.sleep(1000);
+		Thread.sleep(2000);
 		
-		rd1 = devices[2].getRemoteDevice(new Address(NetworkUtils.toOctetString("1")));
+		rd1 = devices[2].getRemoteDevice(new Address(VirtualNetworkUtils.toOctetString("1")));
 		try {
-			rd5 = devices[2].findRemoteDevice(new Address(NetworkUtils.toOctetString("5")), 5);
+			rd5 = devices[2].findRemoteDevice(new Address(VirtualNetworkUtils.toOctetString("5")), 5);
 		} catch (BACnetException e){
 			e.printStackTrace();
 			fail("Unexpected Exception");

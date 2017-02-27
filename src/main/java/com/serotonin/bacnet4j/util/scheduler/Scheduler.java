@@ -67,9 +67,13 @@ public class Scheduler {
 
 	private ScheduledExecutorService scheduler = null;
 	private int counter = 0;
-	private final int poolSize;
+	private int poolSize;
 	
 	public Scheduler(int poolSize) {
+		this.poolSize = poolSize;
+	}
+	
+	public void setPoolSize(int poolSize) {
 		this.poolSize = poolSize;
 	}
 	
