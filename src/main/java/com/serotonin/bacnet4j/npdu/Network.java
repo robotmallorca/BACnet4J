@@ -328,7 +328,14 @@ abstract public class Network {
                 				if((networkNumber != null) && (networkNumber > 0) && 
                 					((npdu.getFrom() == null) || (networkNumber != npdu.getFrom().getNetworkNumber().intValue()))) 
                 				{
-		                			NPDU forwardNpdu = new NPDU(npdu.getFrom(), npdu.getTo(), npdu.getLinkService(), (ByteQueue)npdu.getNetworkMessageData().clone(), npdu.getExpectsReply());
+                					// Rewrite from info for messages generated in local network
+                					Address from = npdu.getFrom();
+                					if((from == null)) {
+                						from = getLocalAddress();
+                					} else if(from.getNetworkNumber().intValue() == 0) {
+                						from = new Address(getLocalNetworkNumber(), from.getMacAddress());
+                					}
+		                			NPDU forwardNpdu = new NPDU(from, npdu.getTo(), npdu.getLinkService(), (ByteQueue)npdu.getNetworkMessageData().clone(), npdu.getExpectsReply());
 		                			forwardNpdu.setHopCount(hopcount-1);
 	                				getRouteNetwork(networkNumber).route(forwardNpdu, true);
                 				}
@@ -446,9 +453,9 @@ abstract public class Network {
             	return null;
             }
             if(getLocalNetworkNumber() != destNet) {
-            	byte temp[] = npci.getDestinationAddress();
-            	if(temp == null) {
-            		temp = new byte[] {0};
+            	OctetString temp = null;
+            	if(npci.getDestinationAddress() != null) {
+            		temp = new OctetString(npci.getDestinationAddress());
             	}
             	to = new Address(destNet, temp);
             }
@@ -470,9 +477,9 @@ abstract public class Network {
         } else {
 	        // APDU message
 	        npdu = new NPDU(from, to, linkService, queue, npci.isExpectingReply());
-	       if(npci.hasDestinationInfo()) {
-	    	   npdu.setHopCount(npci.getHopCount());
-	       }
+			if(npci.hasDestinationInfo()) {
+				npdu.setHopCount(npci.getHopCount());
+			}
         }
         return npdu;
     }

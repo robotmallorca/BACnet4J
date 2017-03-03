@@ -142,7 +142,14 @@ public class Address extends BaseType {
 
     @Override
     public String toString() {
-        return "Address [networkNumber=" + networkNumber + ", macAddress=" + macAddress + "]";
+    	String result = new String("Address [networkNumber=" + networkNumber + ", macAddress=");
+    	if(macAddress == null) {
+    		result += "null";
+    	} else {
+    		result += macAddress;
+    	}
+    	result += "]";
+        return  result;
     }
 
     @Override

@@ -540,6 +540,9 @@ public class IpNetwork extends Network implements Runnable {
     
     @Override
 	public Address getLocalAddress() {
+    	if(localBindAddress == null || localBindAddressStr == null || localBindAddressStr.equals(DEFAULT_BIND_IP)) {
+    		return getAllLocalAddresses()[0];
+    	}
 		return IpNetworkUtils.toAddress(localBindAddress);
 	}
 

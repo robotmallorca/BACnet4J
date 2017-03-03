@@ -36,9 +36,9 @@ import com.serotonin.bacnet4j.type.primitive.OctetString;
  */
 public class VirtualNetworkUtils {
 	public static OctetString toOctetString(String string) {
-		long value = Long.parseUnsignedLong(string);
-		byte bytes[] = new byte[Long.BYTES];
-		for(int i=0; i < Long.BYTES; ++i) {
+		int value = Integer.parseInt(string);
+		byte bytes[] = new byte[Integer.BYTES];
+		for(int i=0; i < Integer.BYTES; ++i) {
 			bytes[i] = (byte)(value & 0xff);
 			value >>= 8;
 		}
