@@ -153,12 +153,12 @@ public class NetworkPriorityTest {
 
             @Override
             public Address[] getAllLocalAddresses() {
-                throw new RuntimeException();
+            	return new Address[] {};
             }
 
 			@Override
 			public Address getLocalAddress() {
-				throw new RuntimeException();
+				return new Address(new byte[] {});
 			}
         };
 
