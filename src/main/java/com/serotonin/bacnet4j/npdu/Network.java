@@ -208,6 +208,7 @@ abstract public class Network {
         	for (Integer networkNum : routerPorts) {
         		Network route = getRouteNetwork(networkNum);
 				if(route != null) {
+			        LOG.debug("{}{} Route APDU to {}: {}", getLocalNetworkNumber(), getLocalAddress().getMacAddress(), recipient, apdu);
 					route.route(getLocalAddress(), recipient, apdu, broadcast);
 				}
 			}
@@ -219,11 +220,12 @@ abstract public class Network {
             npci = new NPCI(null, null, apdu.expectsReply());
         }
         else {
-            if (router == null) {
+            if (router == null || isThisAddress(new Address(router))) {
             	Network localRoute = getRouteNetwork(recipient.getNetworkNumber().intValue());
             	if(localRoute == null) {
             		throw new RuntimeException("Invalid arguments: router address not provided for remote recipient " + recipient);
             	}
+		        LOG.debug("{}{} Route APDU to {}: {}", getLocalNetworkNumber(), getLocalAddress().getMacAddress(), recipient, apdu);
             	localRoute.route(getLocalAddress(), recipient, apdu, broadcast);
             } else {
             	npci = new NPCI(recipient, null, apdu.expectsReply());
@@ -238,6 +240,7 @@ abstract public class Network {
 	
 	        apdu.write(npdu);
 	
+	        LOG.debug("{}{} Send APDU to {}: {}", getLocalNetworkNumber(), getLocalAddress().getMacAddress(), recipient, npdu);
        		sendNPDU(recipient, router, npdu, broadcast, apdu.expectsReply());
         }
     }
@@ -254,6 +257,7 @@ abstract public class Network {
         		for(Integer networkNum : routerPorts) {
         			Network route = getRouteNetwork(networkNum);
         			if(route != null) {
+        		        LOG.debug("{}{} Route NPDU to {}: {}", getLocalNetworkNumber(), getLocalAddress().getMacAddress(), recipient, msg);
         				route.route(getLocalAddress(), recipient, messageType, msg, broadcast, expectsReply);
         			}
         		}
@@ -271,7 +275,8 @@ abstract public class Network {
             	if(localRoute == null) {
             		throw new RuntimeException("Invalid arguments: router address not provided for a remote recipient");
             	}
-            	localRoute.route(getLocalAddress(), recipient, messageType, msg, broadcast, expectsReply);
+            	LOG.debug("{}{} Route NPDU to {}: {}", getLocalNetworkNumber(), getLocalAddress().getMacAddress(), recipient, msg);
+				localRoute.route(getLocalAddress(), recipient, messageType, msg, broadcast, expectsReply);
             } else {
                 npci = new NPCI(recipient, null, expectsReply, messageType, 0);
             }
@@ -284,6 +289,7 @@ abstract public class Network {
 	        if (msg != null)
 	            npdu.push(msg);
 	
+	        LOG.debug("{}{} Send NPDU to {}: {}", getLocalNetworkNumber(), getLocalAddress().getMacAddress(), recipient, npdu);
         	sendNPDU(recipient, router, npdu, broadcast, expectsReply);
         }
     }
@@ -337,17 +343,30 @@ abstract public class Network {
                 					}
 		                			NPDU forwardNpdu = new NPDU(from, npdu.getTo(), npdu.getLinkService(), (ByteQueue)npdu.getNetworkMessageData().clone(), npdu.getExpectsReply());
 		                			forwardNpdu.setHopCount(hopcount-1);
-	                				getRouteNetwork(networkNumber).route(forwardNpdu, true);
+		                	        LOG.debug("{}{} Route NPDU: {}", getLocalNetworkNumber(), getLocalAddress().getMacAddress(), forwardNpdu);
+	                				getRouteNetwork(networkNumber).route(to, forwardNpdu, true);
                 				}
 	                		}
                 			// Deliver locally
 	                		getTransport().incoming(npdu);
                 		}
                 	} else {
-            			if(isThisNetwork(npdu.getFrom())) {
-            				npdu = new NPDU(new Address(getLocalNetworkNumber(),npdu.getFrom().getMacAddress()), npdu.getTo(), npdu.getLinkService(), npdu.getNetworkMessageData(), npdu.getExpectsReply());
-            			}
-                		getRouteNetwork(destNet).route(npdu, false);
+                		Network route = getRouteNetwork(destNet);
+                		if(route != null) {
+                			Address route_to = npdu.getTo();
+                			if(route.isThisNetwork(route_to)) {
+                				route_to = null;
+                			}
+                			Address route_from = npdu.getFrom();
+	            			if(isThisNetwork(route_from)) {
+	            				route_from = new Address(getLocalNetworkNumber(),npdu.getFrom().getMacAddress());
+	            			}
+	            			npdu = new NPDU(route_from, route_to, npdu.getLinkService(), npdu.getNetworkMessageData(), npdu.getExpectsReply());
+	            			LOG.debug("{}{} Route NPDU: {}", getLocalNetworkNumber(), getLocalAddress().getMacAddress(), npdu);
+	        				route.route(to, npdu, false);
+                		} else {
+                			LOG.error("Invalid local route for network " + destNet);
+                		}
                 	}
                 }
             }
@@ -362,12 +381,12 @@ abstract public class Network {
 
     /**
      * 
-     * @param from
+     * @param address
      * @return Returns true if from is one of our local addresses
      */
-	protected boolean isThisAddress(Address from) {
-		UnsignedInteger networkNumber = from.getNetworkNumber();
-		OctetString mac = from.getMacAddress();
+	protected boolean isThisAddress(Address address) {
+		UnsignedInteger networkNumber = address.getNetworkNumber();
+		OctetString mac = address.getMacAddress();
 		if(networkNumber == null || networkNumber.intValue() == 0 || networkNumber.intValue() == getLocalNetworkNumber()) {
 			if(mac == null)
 				return true;
@@ -384,12 +403,13 @@ abstract public class Network {
 	/**
 	 * Deliver a NPDU originated from another network
 	 * 
+	 * @param recipient
 	 * @param npdu
 	 * @param broadcast
 	 */
-    protected void route(NPDU npdu, boolean broadcast) {
+    protected void route(Address recipient, NPDU npdu, boolean broadcast) {
     	try {
-    		routeImpl(npdu, broadcast);
+    		routeImpl(recipient, npdu, broadcast);
     	} catch(Exception e) {
     		transport.getLocalDevice().getExceptionDispatcher().fireReceivedException(e);
     	} catch (Throwable t) {
@@ -400,7 +420,12 @@ abstract public class Network {
     protected void route(Address from, Address recipient, APDU apdu, boolean broadcast) {
     	ByteQueue data = new ByteQueue();
     	apdu.write(data);
-    	route(new NPDU(from, recipient, null, data, apdu.expectsReply()), broadcast);
+    	
+    	Address to = recipient;
+    	if(isThisNetwork(to)) {
+    		to = null;
+    	}
+    	route(recipient, new NPDU(from, to, null, data, apdu.expectsReply()), broadcast);
     }
     
     protected void route(Address from, Address recipient, int messageType, byte[] msg, boolean broadcast,
@@ -410,18 +435,23 @@ abstract public class Network {
 		if(msg != null) {
 			data.push(msg);
 		}
-		route(new NPDU(from, recipient, null, messageType, data, expectsReply), broadcast);
+		Address to = recipient;
+		if(isThisNetwork(to)) {
+			to = null;
+		}
+		route(recipient, new NPDU(from, to, null, messageType, data, expectsReply), broadcast);
 	}
 
     /**
      * Remote network proxies can override this method to deliver remote NPDUs to
      * the right destination.
      * 
+     * @param recipient
      * @param npdu
      * @param broadcast 
      * @throws Exception
      */
-    protected void routeImpl(NPDU npdu, boolean broadcast) throws Exception {
+    protected void routeImpl(Address recipient, NPDU npdu, boolean broadcast) throws Exception {
 		ByteQueue data = new ByteQueue();
 		NPCI npci;
 		if(npdu.isNetworkMessage()) {
@@ -432,7 +462,7 @@ abstract public class Network {
 		npci.write(data);
 		npdu.write(data);
 		
-		sendNPDU(npdu.getTo(), null, data, broadcast, npdu.getExpectsReply());
+		sendNPDU(recipient, null, data, broadcast, npdu.getExpectsReply());
 	}
 
 	public NPDU parseNpduData(ByteQueue queue, OctetString linkService) throws MessageValidationException {

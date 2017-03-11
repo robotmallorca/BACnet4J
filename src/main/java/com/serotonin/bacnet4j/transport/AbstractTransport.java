@@ -260,6 +260,12 @@ public abstract class AbstractTransport implements Transport {
                         && targetNetworkNumber != network.getLocalNetworkNumber()) {
                     // Going to a specific remote network. Check if we know the router for it.
                     linkService = networkRouters.get(targetNetworkNumber);
+                    if(linkService == null) {
+                    	// Try for a local route
+                    	if(getNetwork().getRouteNetwork(targetNetworkNumber) != null) {
+                    		linkService = getNetwork().getLocalAddress().getMacAddress();
+                    	}
+                    }
 //                    if (linkService == null)
 //                        handleException(new BACnetTimeoutException(
 //                                "Unable to find router to network " + address.getNetworkNumber().intValue()));

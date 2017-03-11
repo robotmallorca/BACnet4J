@@ -192,10 +192,10 @@ class NetworkTest extends TestNetwork {
 	}
 
 	@Override
-	protected void routeImpl(NPDU npdu, boolean broadcast) throws Exception {
+	protected void routeImpl(Address recipient, NPDU npdu, boolean broadcast) throws Exception {
 		GatewayTest.LOG.info("routing NPDU: " + npdu);
 		lastRouted = npdu;
 		
-		super.routeImpl(npdu, broadcast);
+		super.routeImpl(recipient, npdu, broadcast);
 	}
 }

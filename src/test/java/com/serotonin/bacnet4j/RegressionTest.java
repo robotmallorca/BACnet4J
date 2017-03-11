@@ -34,13 +34,24 @@ import org.junit.Test;
 
 import com.serotonin.bacnet4j.enums.MaxApduLength;
 import com.serotonin.bacnet4j.event.DeviceEventAdapter;
+import com.serotonin.bacnet4j.npdu.NPCI;
+import com.serotonin.bacnet4j.npdu.NPDU;
 import com.serotonin.bacnet4j.npdu.Network;
+import com.serotonin.bacnet4j.npdu.VirtualNetwork;
+import com.serotonin.bacnet4j.npdu.VirtualNetworkLink;
 import com.serotonin.bacnet4j.npdu.VirtualNetworkProvider;
+import com.serotonin.bacnet4j.npdu.VirtualNetworkUtils;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
 import com.serotonin.bacnet4j.npdu.ip.IpNetworkBuilder;
 import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.SharedQueueTransport;
 import com.serotonin.bacnet4j.transport.Transport;
+import com.serotonin.bacnet4j.type.constructed.Address;
+import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
+import com.serotonin.bacnet4j.type.primitive.CharacterString;
+import com.serotonin.bacnet4j.type.primitive.OctetString;
+import com.serotonin.bacnet4j.util.RequestUtils;
+import com.serotonin.bacnet4j.util.sero.ByteQueue;
 
 /**
  * @author acladera
@@ -109,6 +120,67 @@ public class RegressionTest {
 		}
 	}
 
+	@Test
+	public void issue5Test() throws Exception {
+		VirtualNetworkProvider networkProvider = new VirtualNetworkProvider(1, "0", MaxApduLength.UP_TO_1024);
+		networkProvider.initilize();
+		Network network = networkProvider.getVirtualNetwork("1");
+		Network testNetwork = new TestNetwork(networkProvider, new Address(1, VirtualNetworkUtils.toOctetString("2")));
+
+		Transport transport = new DefaultTransport(network);
+		LocalDevice router = new LocalDevice(100, transport); 
+		LocalDevice testDev = new LocalDevice(101, new DefaultTransport(testNetwork));
+		
+
+		
+		VirtualNetworkProvider virtualNetworkLink = new VirtualNetworkProvider(2, "0", MaxApduLength.UP_TO_1024);
+		virtualNetworkLink.initilize();
+		LocalDevice virtualRouter = new LocalDevice(1, new SharedQueueTransport(virtualNetworkLink.getVirtualNetwork("1")));
+		LocalDevice virtualDevice2 = new LocalDevice(2, new SharedQueueTransport(virtualNetworkLink.getVirtualNetwork("2")));
+		LocalDevice virtualDevice3 = new LocalDevice(3, new SharedQueueTransport(new TestNetwork(virtualNetworkLink, new Address(2, VirtualNetworkUtils.toOctetString("3")))));
+		
+		
+		router.getNetwork().addRoute(virtualRouter.getNetwork());
+		virtualRouter.getNetwork().addRoute(router.getNetwork());
+		
+		try {
+			router.initialize();
+			testDev.initialize();
+			virtualRouter.initialize();
+			virtualDevice2.initialize();
+			virtualDevice3.initialize();
+			
+			virtualDevice2.getNetwork().sendWhoIsRouterToNetwork(virtualDevice2.getNetwork().getLocalBroadcastAddress(), null, true);
+			testDev.getNetwork().sendWhoIsRouterToNetwork(network.getLocalBroadcastAddress(), null, true);
+			
+			Thread.sleep(1000);
+			
+			assertNotNull(((DefaultTransport)testDev.getNetwork().getTransport()).getNetworkRouters().get(2));
+			
+			virtualDevice3.getConfiguration().writeProperty(PropertyIdentifier.objectName, new CharacterString("Test_3"));
+			RemoteDevice rd3 = testDev.findRemoteDevice(new Address(2, VirtualNetworkUtils.toOctetString("3")), 3);
+			assertNotNull(rd3);
+
+			rd3.setName(RequestUtils.getProperty(testDev, rd3, PropertyIdentifier.objectName).toString());
+			assertEquals("Test_3", rd3.getName());
+
+			virtualRouter.getConfiguration().writeProperty(PropertyIdentifier.objectName, new CharacterString("Virtual Router"));
+			RemoteDevice rdrouter = testDev.findRemoteDevice(new Address(2, VirtualNetworkUtils.toOctetString("1")), 1);
+			assertNotNull(rdrouter);
+
+			rdrouter.setName(RequestUtils.getProperty(testDev, rdrouter, PropertyIdentifier.objectName).toString());
+			assertEquals("Virtual Router", rdrouter.getName());
+
+		} finally {
+			virtualDevice3.terminate();
+			virtualDevice2.terminate();
+			virtualRouter.terminate();
+			testDev.terminate();
+			router.terminate();
+			virtualNetworkLink.terminate();
+		}
+	}
+	
 	class IAmEventRecorder extends DeviceEventAdapter {
 		int count = 0;
 
@@ -124,5 +196,34 @@ public class RegressionTest {
 		public void iAmReceived(RemoteDevice d) {
 			count++;
 		}
+	}
+	
+	class TestNetwork extends VirtualNetwork {
+
+		/**
+		 * @param link
+		 * @param address
+		 */
+		public TestNetwork(VirtualNetworkLink link, Address address) {
+			super(link, address);
+		}
+
+		/* (non-Javadoc)
+		 * @see com.serotonin.bacnet4j.npdu.VirtualNetwork#handleIncomingDataImpl(com.serotonin.bacnet4j.util.sero.ByteQueue, com.serotonin.bacnet4j.type.primitive.OctetString)
+		 */
+		@Override
+		protected NPDU handleIncomingDataImpl(ByteQueue queue, OctetString linkService) throws Exception {
+			NPCI npci = new NPCI((ByteQueue)queue.clone());
+			
+			if(npci.hasDestinationInfo()) {
+				// We must not receive a msg for us with DNET info
+				if(npci.getDestinationNetwork() != Address.ALL_NETWORKS) {
+					fail("Received a message with DNET info: " + npci.getDestinationNetwork());
+				}
+			}
+			return super.handleIncomingDataImpl(queue, linkService);
+		}
+		
+		
 	}
 }
