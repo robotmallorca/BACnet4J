@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
-	<classpathentry kind="src" output="target/classes" path="src/main/java">
+	<classpathentry excluding="META-INF/" kind="src" output="target/classes" path="src/main/java">
 		<attributes>
 			<attribute name="maven.pomderived" value="true"/>
 			<attribute name="optional" value="true"/>
 			<attribute name="org.eclipse.virgo.ide.jdt.core.test.classpathentry" value="false"/>
-		</attributes>
-	</classpathentry>
-	<classpathentry including="GatewayTest.java" kind="src" path="src_test">
-		<attributes>
-			<attribute name="org.eclipse.virgo.ide.jdt.core.test.classpathentry" value="true"/>
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="src" output="target/test-classes" path="src/test/java">
