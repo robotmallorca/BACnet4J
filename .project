@@ -21,7 +21,7 @@
 			</arguments>
 		</buildCommand>
 		<buildCommand>
-			<name>org.eclipse.virgo.ide.bundlor.core.builder</name>
+			<name>org.github.pde2virgo.manifestBuilder</name>
 			<arguments>
 			</arguments>
 		</buildCommand>
@@ -32,5 +32,6 @@
 		<nature>org.eclipse.jdt.core.javanature</nature>
 		<nature>org.eclipse.wst.common.project.facet.core.nature</nature>
 		<nature>org.eclipse.virgo.ide.facet.core.bundlenature</nature>
+		<nature>org.github.pde2virgo.PDE2VirgoNature</nature>
 	</natures>
 </projectDescription>
